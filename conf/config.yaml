@@ -1,0 +1,36 @@
+#Setting:
+#Expiration         --> 本地文件超时时间
+#CheckExpiration    --> 检查本地文件是否超时的频率
+#Common             --> 本地存放Module的路径
+
+#Database:
+#Host               --> 数据库主机地址
+#Port               --> 数据库主机端口
+#Username           --> 用户名
+#Password           --> 密码
+
+#GRPC:
+#Port               --> GRPC服务使用的端口
+
+#Backup:
+#Host               --> 备份服务器的GRPC主机地址
+#Port               --> 备份服务器的GRPC端口号
+
+Setting:
+  Expiration: 180
+  CheckExpiration: 24
+  Common: E:\modulebalabcing\server\common
+
+
+Database:
+  Host: localhost
+  Port: 3305
+  Username: root
+  Password: Qaqaqa00.0
+
+GRPC:
+  Port:
+
+Backup:
+  Host:
+  Port:

@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+option go_package = "/grpc";
+
+package ModuleBalancing;
+
+service Module {
+  rpc Download(ModuleDownloadRequest) returns (stream ModuleDownloadResponse);
+  rpc Analyzing(analyzingRequest) returns (analyzingResponse);
+}
+
+service Expirationpush {
+  rpc Expiration(ExpirationPushRequest) returns (stream ExpirationPushResponse);
+}
+
+service Storerecord {
+  rpc Updatestorerecord(stream StorerecordRequest) returns (StorerecordResponse);
+}
+
+message StorerecordRequest {
+  string heartbeat = 1;
+  string Serveraddress = 2;
+  string partnumber = 3;
+  repeated string modulenames = 4;
+}
+
+message StorerecordResponse {
+  bool isok = 1;
+}
+
+message ModuleDownloadRequest {
+  string Filename = 1;
+  int64 offset = 2;
+}
+
+message ModuleDownloadResponse {
+  bytes  content = 4;
+  bool   completed = 3;
+}
+
+message FileInformation {
+  string  MD5 = 5;
+  int64   size = 2;
+  int64   modify = 3;  // 修改时间 (Unix 时间戳)
+  string  filename = 1;
+  int64   create = 4; // 创建时间 (Unix 时间戳 - 非所有文件系统都支持)
+}
+
+message analyzingRequest {
+  string  filename = 1;
+  bytes   fbytes = 2;
+}
+
+message analyzingResponse {
+  repeated string modulename = 1;
+  repeated string analyzingerror = 2;
+}
+
+
+message ExpirationPushRequest {
+  string  serveraddress = 1;
+  int64   maxretentiondays = 2;
+  string  checkdir = 3;
+  string  outdir = 4;
+  string  backdir = 5;
+}
+
+message ExpirationPushResponse {
+  string   partnumber = 1;
+  repeated string modulename = 2;
+  string   heartbeat = 3;
+}
