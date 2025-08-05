@@ -16,10 +16,13 @@
 #Host               --> 备份服务器的GRPC主机地址
 #Port               --> 备份服务器的GRPC端口号
 
+
 Setting:
+  # Day
   Expiration: 180
-  CheckExpiration: 24
-  Common: E:\modulebalabcing\server\common
+  # Second
+  CheckExpiration: 10
+  Common: E:\Server\Common
 
 
 Database:
@@ -29,8 +32,8 @@ Database:
   Password: Qaqaqa00.0
 
 GRPC:
-  Port:
+  Port: 9998
 
 Backup:
-  Host:
-  Port:
+  Host: localhost
+  Port: 9999

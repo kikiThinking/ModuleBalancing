@@ -19,16 +19,20 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	Module_Download_FullMethodName  = "/ModuleBalancing.Module/Download"
-	Module_Analyzing_FullMethodName = "/ModuleBalancing.Module/Analyzing"
+	Module_Upload_FullMethodName                = "/ModuleBalancing.Module/Upload"
+	Module_Analyzing_FullMethodName             = "/ModuleBalancing.Module/Analyzing"
+	Module_IntegrityVerification_FullMethodName = "/ModuleBalancing.Module/IntegrityVerification"
+	Module_Push_FullMethodName                  = "/ModuleBalancing.Module/Push"
 )
 
 // ModuleClient is the client API for Module service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ModuleClient interface {
-	Download(ctx context.Context, in *ModuleDownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ModuleDownloadResponse], error)
+	Upload(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadRequest, UploadResponse], error)
 	Analyzing(ctx context.Context, in *AnalyzingRequest, opts ...grpc.CallOption) (*AnalyzingResponse, error)
+	IntegrityVerification(ctx context.Context, in *IntegrityVerificationRequest, opts ...grpc.CallOption) (*IntegrityVerificationResponse, error)
+	Push(ctx context.Context, in *ModuleDownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ModulePushResponse], error)
 }
 
 type moduleClient struct {
@@ -39,24 +43,18 @@ func NewModuleClient(cc grpc.ClientConnInterface) ModuleClient {
 	return &moduleClient{cc}
 }
 
-func (c *moduleClient) Download(ctx context.Context, in *ModuleDownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ModuleDownloadResponse], error) {
+func (c *moduleClient) Upload(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[UploadRequest, UploadResponse], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	stream, err := c.cc.NewStream(ctx, &Module_ServiceDesc.Streams[0], Module_Download_FullMethodName, cOpts...)
+	stream, err := c.cc.NewStream(ctx, &Module_ServiceDesc.Streams[0], Module_Upload_FullMethodName, cOpts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &grpc.GenericClientStream[ModuleDownloadRequest, ModuleDownloadResponse]{ClientStream: stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
+	x := &grpc.GenericClientStream[UploadRequest, UploadResponse]{ClientStream: stream}
 	return x, nil
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Module_DownloadClient = grpc.ServerStreamingClient[ModuleDownloadResponse]
+type Module_UploadClient = grpc.ClientStreamingClient[UploadRequest, UploadResponse]
 
 func (c *moduleClient) Analyzing(ctx context.Context, in *AnalyzingRequest, opts ...grpc.CallOption) (*AnalyzingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
@@ -68,12 +66,43 @@ func (c *moduleClient) Analyzing(ctx context.Context, in *AnalyzingRequest, opts
 	return out, nil
 }
 
+func (c *moduleClient) IntegrityVerification(ctx context.Context, in *IntegrityVerificationRequest, opts ...grpc.CallOption) (*IntegrityVerificationResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IntegrityVerificationResponse)
+	err := c.cc.Invoke(ctx, Module_IntegrityVerification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *moduleClient) Push(ctx context.Context, in *ModuleDownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ModulePushResponse], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &Module_ServiceDesc.Streams[1], Module_Push_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[ModuleDownloadRequest, ModulePushResponse]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Module_PushClient = grpc.ServerStreamingClient[ModulePushResponse]
+
 // ModuleServer is the server API for Module service.
 // All implementations must embed UnimplementedModuleServer
 // for forward compatibility.
 type ModuleServer interface {
-	Download(*ModuleDownloadRequest, grpc.ServerStreamingServer[ModuleDownloadResponse]) error
+	Upload(grpc.ClientStreamingServer[UploadRequest, UploadResponse]) error
 	Analyzing(context.Context, *AnalyzingRequest) (*AnalyzingResponse, error)
+	IntegrityVerification(context.Context, *IntegrityVerificationRequest) (*IntegrityVerificationResponse, error)
+	Push(*ModuleDownloadRequest, grpc.ServerStreamingServer[ModulePushResponse]) error
 	mustEmbedUnimplementedModuleServer()
 }
 
@@ -84,11 +113,17 @@ type ModuleServer interface {
 // pointer dereference when methods are called.
 type UnimplementedModuleServer struct{}
 
-func (UnimplementedModuleServer) Download(*ModuleDownloadRequest, grpc.ServerStreamingServer[ModuleDownloadResponse]) error {
-	return status.Errorf(codes.Unimplemented, "method Download not implemented")
+func (UnimplementedModuleServer) Upload(grpc.ClientStreamingServer[UploadRequest, UploadResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Upload not implemented")
 }
 func (UnimplementedModuleServer) Analyzing(context.Context, *AnalyzingRequest) (*AnalyzingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Analyzing not implemented")
+}
+func (UnimplementedModuleServer) IntegrityVerification(context.Context, *IntegrityVerificationRequest) (*IntegrityVerificationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method IntegrityVerification not implemented")
+}
+func (UnimplementedModuleServer) Push(*ModuleDownloadRequest, grpc.ServerStreamingServer[ModulePushResponse]) error {
+	return status.Errorf(codes.Unimplemented, "method Push not implemented")
 }
 func (UnimplementedModuleServer) mustEmbedUnimplementedModuleServer() {}
 func (UnimplementedModuleServer) testEmbeddedByValue()                {}
@@ -111,16 +146,12 @@ func RegisterModuleServer(s grpc.ServiceRegistrar, srv ModuleServer) {
 	s.RegisterService(&Module_ServiceDesc, srv)
 }
 
-func _Module_Download_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(ModuleDownloadRequest)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(ModuleServer).Download(m, &grpc.GenericServerStream[ModuleDownloadRequest, ModuleDownloadResponse]{ServerStream: stream})
+func _Module_Upload_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ModuleServer).Upload(&grpc.GenericServerStream[UploadRequest, UploadResponse]{ServerStream: stream})
 }
 
 // This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
-type Module_DownloadServer = grpc.ServerStreamingServer[ModuleDownloadResponse]
+type Module_UploadServer = grpc.ClientStreamingServer[UploadRequest, UploadResponse]
 
 func _Module_Analyzing_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AnalyzingRequest)
@@ -140,6 +171,35 @@ func _Module_Analyzing_Handler(srv interface{}, ctx context.Context, dec func(in
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Module_IntegrityVerification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IntegrityVerificationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModuleServer).IntegrityVerification(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Module_IntegrityVerification_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModuleServer).IntegrityVerification(ctx, req.(*IntegrityVerificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _Module_Push_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ModuleDownloadRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(ModuleServer).Push(m, &grpc.GenericServerStream[ModuleDownloadRequest, ModulePushResponse]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type Module_PushServer = grpc.ServerStreamingServer[ModulePushResponse]
+
 // Module_ServiceDesc is the grpc.ServiceDesc for Module service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -151,11 +211,20 @@ var Module_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "Analyzing",
 			Handler:    _Module_Analyzing_Handler,
 		},
+		{
+			MethodName: "IntegrityVerification",
+			Handler:    _Module_IntegrityVerification_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "Download",
-			Handler:       _Module_Download_Handler,
+			StreamName:    "Upload",
+			Handler:       _Module_Upload_Handler,
+			ClientStreams: true,
+		},
+		{
+			StreamName:    "Push",
+			Handler:       _Module_Push_Handler,
 			ServerStreams: true,
 		},
 	},

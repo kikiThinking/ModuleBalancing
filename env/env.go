@@ -12,16 +12,31 @@ package env
 
 import (
 	"ModuleBalancing/db"
+	rpc "ModuleBalancing/grpc"
+	"ModuleBalancing/logmanager"
 	"bufio"
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
+	"github.com/redmask-hb/GoSimplePrint/goPrint"
+	"github.com/rjeczalik/notify"
+	"golang.org/x/sys/windows"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
 	"hash/crc64"
 	"io"
+	"log"
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
+	"time"
 )
 
 type Configuration struct {
@@ -45,21 +60,25 @@ type Configuration struct {
 	} `yaml:"Backup"`
 }
 
+var (
+	err error
+)
+
 func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error) {
-	file, err := os.Open(filePath)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to open file: %v", err)
 	}
-	defer file.Close()
+	defer f.Close()
 
-	fileInfo, err := file.Stat()
+	finformation, err := f.Stat()
 	if err != nil {
 		return 0, 0, fmt.Errorf("filed to get file information: %v", err)
 	}
 
-	fileSize := fileInfo.Size()
+	fileSize := finformation.Size()
 	if fileSize == 0 {
-		return 0, fileInfo.Size(), err
+		return 0, finformation.Size(), err
 	}
 
 	chunks := int((fileSize + chunkSize - 1) / chunkSize)
@@ -88,7 +107,7 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 				}
 
 				buf := make([]byte, size)
-				n, err := file.ReadAt(buf, offset)
+				n, err := f.ReadAt(buf, offset)
 				if err != nil && err != io.EOF {
 					mu.Lock()
 					if !hasError {
@@ -130,7 +149,7 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 
 	// 处理错误
 	if err := <-errCh; err != nil {
-		return 0, fileInfo.Size(), err
+		return 0, finformation.Size(), err
 	}
 
 	// 按顺序合并所有块的CRC值
@@ -143,10 +162,10 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 		})
 	}
 
-	return finalCRC, fileInfo.Size(), nil
+	return finalCRC, finformation.Size(), nil
 }
 
-func Analyzing(ctx *gorm.DB, common string, source []byte) ([]string, []string, error) {
+func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanager.BusinessLogger) ([]string, []string, error) {
 	var (
 		crifilelist    = make([]string, 0)
 		response       = make([]string, 0)
@@ -177,25 +196,9 @@ func Analyzing(ctx *gorm.DB, common string, source []byte) ([]string, []string, 
 		return nil, nil, err
 	}
 
-	for _, value := range crifilelist {
-		var filename string
-		if err = ctx.Model(db.Module{}).Select(`name`).Where(db.Module{Name: value}).First(&filename).Error; err != nil {
-			if _, exist := os.Stat(strings.Join([]string{common, value}, `\`)); os.IsNotExist(exist) {
-				fmt.Printf("实体文件不存在, 去Backup Server Copy")
-				analyzingerror = append(analyzingerror, value)
-				continue
-				// 实体文件不存在 去Backup Server Copy并更新Lastuse, Expiration
-			}
-		}
-
-		response = append(response, strings.TrimSpace(value))
-		f, err := os.ReadFile(strings.Join([]string{common, value}, `\`))
-		if err != nil {
-			analyzingerror = append(analyzingerror, value)
-			continue
-		}
-
-		buf = bufio.NewScanner(bytes.NewBuffer(f))
+	var Analyzingmodules = func(source []byte) []string {
+		var res = make([]string, 0)
+		buf = bufio.NewScanner(bytes.NewBuffer(source))
 
 		for buf.Scan() {
 			if buf.Err() != nil {
@@ -207,9 +210,457 @@ func Analyzing(ctx *gorm.DB, common string, source []byte) ([]string, []string, 
 				continue
 			}
 
-			response = append(response, strings.TrimSpace(strings.Split(modulename, "=")[1]))
+			res = append(res, strings.TrimSpace(strings.Split(modulename, "=")[1]))
 		}
+		return res
+	}
+
+	for _, value := range crifilelist {
+		var exist bool
+		if err = ctx.Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: value}).Scan(&exist).Error; err != nil {
+			return nil, nil, err
+		}
+
+		if !exist {
+			// from backup
+			backctx, cencel := context.WithCancel(context.Background())
+			if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", cf.Backup.Host, cf.Backup.Port), cf.Setting.Common, value, logwrite); err != nil {
+				cencel()
+				analyzingerror = append(analyzingerror, err.Error())
+				continue
+			}
+			cencel()
+		}
+
+		response = append(response, strings.TrimSpace(value))
+		fbyte, err := os.ReadFile(strings.Join([]string{cf.Setting.Common, value}, `\`))
+		if err != nil {
+			return nil, nil, err
+		}
+		response = append(response, Analyzingmodules(fbyte)...)
 	}
 
 	return response, analyzingerror, nil
+}
+
+func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration int64, monitorpath string) {
+	log.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
+	var monitorfile = make(chan string, 200)
+	go func() {
+		for {
+			select {
+			case fp := <-monitorfile:
+				var ticker = time.NewTicker(time.Second * 5)
+				var loop = 0
+				var fclose = false
+				for range ticker.C {
+					if loop == 120 {
+						break
+					}
+					if handle, err := windows.CreateFile(
+						windows.StringToUTF16Ptr(fp),
+						windows.GENERIC_READ,
+						0, // 关键：共享模式为0，表示独占访问
+						nil,
+						windows.OPEN_EXISTING,
+						windows.FILE_ATTRIBUTE_NORMAL,
+						0,
+					); err != nil {
+						loop++
+						continue
+					} else {
+						_ = windows.CloseHandle(handle)
+						fclose = true
+						break
+					}
+				}
+
+				if fclose {
+					var module = new(db.Module)
+					if err = ctx.Model(db.Module{}).Where(db.Module{Name: filepath.Base(fp)}).First(&module).Error; err != nil {
+						if errors.Is(err, gorm.ErrRecordNotFound) {
+							var (
+								CRC  uint64
+								size int64
+							)
+
+							if CRC, size, err = CRC64(fp, 128*1024*1024, 8); err != nil {
+								log.Error(err.Error())
+								continue
+							}
+
+							module.Name = filepath.Base(fp)
+							module.Size = size
+							module.CRC64 = CRC
+							module.Lastuse = time.Now()
+							module.Expiration = time.Now().Add(time.Hour * 24 * time.Duration(expiration))
+
+							if err = ctx.Model(db.Module{}).Create(&module).Error; err != nil {
+								log.Error(err.Error())
+								continue
+							}
+							log.Info(fmt.Sprintf("New Module ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
+								module.Name,
+								module.Size,
+								module.CRC64,
+								module.Lastuse.Format(`2006-01-02 15:04:05`),
+								module.Expiration.Format(`2006-01-02 15:04:05`),
+							))
+						} else {
+							log.Error(err.Error())
+						}
+					}
+					//else {
+					//	module.Lastuse = time.Now()
+					//	module.Expiration = time.Now().Add(time.Hour * 24 * time.Duration(expiration))
+					//
+					//	if err = ctx.Model(db.Module{}).Where("id = ?", module.ID).Save(&module).Error; err != nil {
+					//		log.Error("Update Module Failed: " + err.Error())
+					//	} else {
+					//		log.Info(fmt.Sprintf("Update Module ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
+					//			module.Name,
+					//			module.Size,
+					//			module.CRC64,
+					//			module.Lastuse.Format(`2006-01-02 15:04:05`),
+					//			module.Expiration.Format(`2006-01-02 15:04:05`),
+					//		))
+					//	}
+					//}
+				} else {
+					log.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s))", fp))
+				}
+			}
+		}
+	}()
+
+	var (
+		monitorchannel = make(chan notify.EventInfo, 200)
+		monitorevent   = notify.Create
+	)
+
+	if err := notify.Watch(monitorpath, monitorchannel, monitorevent); err != nil {
+		log.Error(err.Error())
+		return
+	}
+
+	defer notify.Stop(monitorchannel)
+
+	var number = 1
+	for {
+		select {
+		case cre := <-monitorchannel:
+			switch cre.Event() {
+			case notify.Create:
+				fmt.Printf("(%v) %s", number, cre.Path())
+				inf, err := os.Stat(cre.Path())
+				if err != nil {
+					log.Error(err.Error())
+					continue
+				}
+
+				if inf.IsDir() {
+					continue
+				}
+
+				if strings.Contains(cre.Path(), "frombackdownload") {
+					log.Info(fmt.Sprintf("file(%s) from backup server download, skip check!", cre.Path()))
+					continue
+				}
+
+				fmt.Println("\t ----> OK")
+				monitorfile <- cre.Path()
+				number++
+			default:
+			}
+		}
+	}
+}
+
+func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddress, fp, fn string, logmar *logmanager.BusinessLogger) error {
+	var (
+		stream grpc.ServerStreamingClient[rpc.ModulePushResponse]
+		conn   *grpc.ClientConn
+	)
+
+	// dstfp 目标文件名
+	// tempfp 防止monitor函数自动去解析中backup server download的文件
+	var (
+		dstfp  = fmt.Sprintf("%s/%s", fp, fn)
+		tempfp = fmt.Sprintf("%s/%s-frombackdownload", fp, fn)
+	)
+
+	//return errors.New("Not change local store")
+
+	logmar.Info(fmt.Sprintf("from backup server download module  ----> %s", filepath.Base(fn)))
+	conn, err = grpc.NewClient(backupaddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logmar.Error(fmt.Sprintf("Did not connect: %s", err.Error()))
+		return err
+	}
+
+	defer conn.Close()
+
+	dlclient := rpc.NewModuleClient(conn)
+
+	// 判断文件夹是否存在, 如果不存在创建文件夹, 防止创建文件时发生panic
+	if _, exist := os.Stat(fp); os.IsNotExist(exist) {
+		if err = os.MkdirAll(fp, 0777); err != nil {
+			return err
+		}
+	}
+
+	if stream, err = dlclient.Push(ctx, &rpc.ModuleDownloadRequest{Filename: fn, Offset: 0}); err != nil {
+		return err
+	}
+
+	f, err := os.Create(tempfp)
+	if err != nil {
+		return err
+	}
+
+	headers, err := stream.Header()
+	if err != nil {
+		return err
+	}
+
+	if len(headers) == 0 {
+		return errors.New("failed to did not receive the headers passed by the server")
+	}
+
+	var (
+		crc   = headers.Get("crc64")
+		size  int64
+		Cunix int64
+		Munix int64
+		fcrc  uint64
+	)
+
+	filesize, err := strconv.ParseInt(headers.Get("size")[0], 10, 64)
+	if err != nil {
+		return err
+	}
+
+	var offset = 0
+	var bar = goPrint.NewBar(int(filesize) / 1024 / 1024)
+	bar.SetGraph(`=`)
+	bar.SetNotice("(MB)")
+	bar.SetEnds("{", "}")
+	for {
+		var response *rpc.ModulePushResponse
+		if response, err = stream.Recv(); err != nil {
+			if err == io.EOF {
+				// 下载完成
+				break
+			}
+
+			// 这里实现断点续传, 如果重新和服务端建立连接则重offset处继续下载
+			fmt.Println("Service connect close, wait downloading...")
+			var connect = false
+			for i := 0; i <= 12; i++ {
+				log.Printf("waiting of retry offset(%v)...\t\n", offset)
+				time.Sleep(time.Second * 5)
+				if stream, err = dlclient.Push(ctx, &rpc.ModuleDownloadRequest{Filename: fn, Offset: int64(offset)}); err != nil {
+					continue
+				}
+				connect = true
+				break
+			}
+
+			if connect {
+				continue
+			}
+
+			return fmt.Errorf("failed to download file(%s), retry more then 5 times", fn)
+		}
+
+		// 文件已经下载完毕
+		if response.Completed {
+			break
+		}
+
+		number, err := f.Write(response.Content)
+		if err != nil {
+			return err
+		}
+
+		bar.PrintBar(offset / 1024 / 1024)
+		offset += number
+	}
+
+	bar.PrintEnd(fmt.Sprintf("Download file(%s)\t----> finish\r\n", fn))
+
+	_ = f.Close()
+
+	if Munix, err = strconv.ParseInt(headers.Get("munix")[0], 10, 64); err != nil {
+		return err
+	}
+
+	if Cunix, err = strconv.ParseInt(headers.Get("cunix")[0], 10, 64); err != nil {
+		return err
+	}
+
+	if err = Changefiletime(tempfp, Cunix, Munix); err != nil {
+		return err
+	}
+
+	// 计算下载下来的文件的CRC, 比对是否与服务端提供的一致
+	if fcrc, size, err = CRC64(tempfp, 128*1024*1024, 8); err != nil {
+		return err
+	}
+
+	// 判断下载的文件大小与服务端提供的是否一致
+	if size != filesize {
+		return errors.New("files are different sizes")
+	}
+
+	if !strings.EqualFold(crc[0], strconv.FormatUint(fcrc, 10)) {
+		return errors.New("the crc64 values are inconsistent, and the file may have been damaged during the download process")
+	}
+
+	var module = db.Module{
+		CRC64:      fcrc,
+		Name:       filepath.Base(fn),
+		Size:       filesize,
+		Lastuse:    time.Now(),
+		Expiration: time.Now().Add(time.Hour * 24),
+	}
+
+	// 从服务器下载的Module写入到db
+	if err = dbcontrol.Model(db.Module{}).Where(db.Module{Name: module.Name}).Save(&module).Error; err != nil {
+		return err
+	}
+
+	if err = os.Rename(tempfp, dstfp); err != nil {
+		logmar.Error(fmt.Sprintf("Failed to rename file(%s --> %s)", tempfp, dstfp))
+		return err
+	}
+
+	logmar.Info(fmt.Sprintf("Module download completed  --> %-20s  CRC: %-20v  Size: %-10v  Lastuse: %-20s  Expiration: %-20s",
+		filepath.Base(fn),
+		fcrc,
+		filesize,
+		time.Now().Format(`2006-01-02 15:04:05`),
+		time.Now().Add(time.Hour*24).Format(`2006-01-02 15:04:05`),
+	))
+
+	return nil
+}
+
+func Uploadtoback(ctx context.Context, backupaddress, common string, module db.Module, logmar *logmanager.BusinessLogger) error {
+	var (
+		conn *grpc.ClientConn
+	)
+
+	logmar.Info(fmt.Sprintf("Upload module(%s) to backup server", filepath.Base(module.Name)))
+	conn, err = grpc.NewClient(backupaddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logmar.Error(fmt.Sprintf("Did not connect: %s", err.Error()))
+		return err
+	}
+
+	defer conn.Close()
+
+	uploadclient := rpc.NewModuleClient(conn)
+
+	// 打开文件
+	f, err := os.Open(strings.Join([]string{common, module.Name}, "/"))
+	if err != nil {
+		log.Fatalf("failed to open file: %v", err)
+	}
+
+	defer f.Close()
+
+	finformation, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	var fcreatedate int64
+	switch runtime.GOOS {
+	case "windows":
+		fcreatedate = finformation.Sys().(*syscall.Win32FileAttributeData).CreationTime.Nanoseconds() / 1e9
+	default:
+		fcreatedate = time.Now().Unix()
+	}
+
+	stream, err := uploadclient.Upload(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.Send(&rpc.UploadRequest{
+		Data: &rpc.UploadRequest_Information{
+			Information: &rpc.Finformation{
+				Filename: module.Name,
+				Size:     strconv.FormatInt(module.Size, 10),
+				Crc64:    strconv.FormatUint(module.CRC64, 10),
+				MUnix:    strconv.FormatInt(finformation.ModTime().Unix(), 10),
+				CUnix:    strconv.FormatInt(fcreatedate, 10),
+			}}}); err != nil {
+		return err
+	}
+
+	// 分块上传文件数据
+	buffer := make([]byte, 1*1024*1024)
+	for {
+		bytesize, err := f.Read(buffer)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			log.Fatalf("failed to read file: %v", err)
+		}
+
+		if err = stream.Send(&rpc.UploadRequest{
+			Data: &rpc.UploadRequest_ChunkData{
+				ChunkData: buffer[:bytesize],
+			}}); err != nil {
+			return err
+		}
+	}
+
+	// 关闭并接收响应
+	resp, err := stream.CloseAndRecv()
+	if err != nil {
+		return err
+	}
+
+	if resp.Success {
+		return nil
+	}
+
+	return errors.New(resp.Message)
+}
+
+func Changefiletime(fp string, munix, cunix int64) error {
+	var (
+		handle   syscall.Handle
+		uint16fp *uint16
+	)
+	// 转换文件路径为UTF-16指针
+	if uint16fp, err = syscall.UTF16PtrFromString(fp); err != nil {
+		return err
+	}
+
+	// 打开文件获取句柄
+	if handle, err = syscall.CreateFile(
+		uint16fp,
+		syscall.FILE_WRITE_ATTRIBUTES,
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE,
+		nil,
+		syscall.OPEN_EXISTING,
+		syscall.FILE_ATTRIBUTE_NORMAL,
+		0,
+	); err != nil {
+		return err
+	}
+
+	ParseWindowsTime := func(t time.Time) syscall.Filetime {
+		return syscall.NsecToFiletime(t.UnixNano())
+	}
+	Ctime := ParseWindowsTime(time.Unix(cunix, 0))
+	Mtime := ParseWindowsTime(time.Unix(munix, 0))
+	Rtime := ParseWindowsTime(time.Now())
+	defer syscall.CloseHandle(handle)
+	return syscall.SetFileTime(handle, &Ctime, &Rtime, &Mtime)
 }

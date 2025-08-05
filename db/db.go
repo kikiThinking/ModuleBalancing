@@ -37,9 +37,7 @@ type Client struct {
 	gorm.Model
 	Serveraddress    string         `gorm:"type:varchar(30);column:serveraddress;unique" json:"serveraddress"`
 	Maxretentiondays int64          `gorm:"column:maxretentiondays" json:"maxretentiondays"`
-	Checkdir         string         `gorm:"type:varchar(255);column:checkdir;unique" json:"checkdir"`
-	Outdir           string         `gorm:"type:varchar(255);column:outdir;unique" json:"outdir"`
-	Backdir          string         `gorm:"type:varchar(255);column:backdir;unique" json:"backdir"`
+	Reload           bool           `gorm:"column:reload" json:"reload"`
 	Store            []Clientmodule `gorm:"foreignkey:StoreID" json:"StoreID"`
 }
 

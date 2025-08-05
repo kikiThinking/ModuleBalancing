@@ -13,9 +13,12 @@ import (
 	"ModuleBalancing/api"
 	"ModuleBalancing/db"
 	"ModuleBalancing/env"
-	pb "ModuleBalancing/grpc"
+	rpc "ModuleBalancing/grpc"
+	"ModuleBalancing/logmanager"
+	"context"
 	"errors"
 	"fmt"
+	"github.com/rjeczalik/notify"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/yaml.v3"
@@ -25,7 +28,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -33,17 +35,111 @@ import (
 )
 
 var (
-	err                   error
-	service               *grpc.Server
-	dbcontrol             *gorm.DB
-	servicesconfiguration *env.Configuration
+	err                     error
+	service                 *grpc.Server
+	dbcontrol               *gorm.DB
+	servicesconfiguration   *env.Configuration
+	logmar                  = logmanager.InitManager()
+	clientexpirationchannel = make(map[string]chan *rpc.ExpirationPushResponse, 100)
 )
 
 func init() {
-	f, err := os.ReadFile(strings.Join([]string{"conf", "config.yaml"}, "/"))
+	Programinformation("V1.0.0.1")
+	fmt.Println(readrunpath())
+	f, err := os.ReadFile(strings.Join([]string{readrunpath(), "conf", "config.yaml"}, "/"))
 	if err != nil {
 		panic(err)
 	}
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Database",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "db"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Clientstore",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "clientstore"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	//Clientstore
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Expiration",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "expiration"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Download",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "dl"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Monitornewmodule",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "monitor"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Upload",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "upload"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Dumplocalmodules",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "dump"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	// 初始化日志
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Expirationforclient",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "expirationforclient"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "IntegrityVerification",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "integrityverification"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Analyzing",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "analyzing"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
 
 	servicesconfiguration = new(env.Configuration)
 	if err = yaml.Unmarshal(f, servicesconfiguration); err != nil {
@@ -82,22 +178,31 @@ func init() {
 }
 
 func main() {
-	lis, err := net.Listen("tcp", ":9999")
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", servicesconfiguration.GRPC.Port))
 	if err != nil {
 		panic(err)
 	}
 
+	go hotloadding(strings.Join([]string{readrunpath(), "conf"}, `\`))
+	// 启动时装载本地没有记录的Module
 	if err = Dumpmoduletodatabse(dbcontrol); err != nil {
 		panic(err)
 	}
 
+	// 实时监听Module目录, 当Module目录新增Module时
+	go env.Monitornewmodule(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
+
+	// 过期Module备份和删除
+	go expirationcheck(dbcontrol)
+	go clientexpirationcheck(dbcontrol)
+
 	service = grpc.NewServer()
-	pb.RegisterModuleServer(service, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol})
-	pb.RegisterExpirationpushServer(service, &api.Expirationpush{ClientList: make(map[string]chan *pb.ExpirationPushResponse), Dbcontrol: dbcontrol})
-	pb.RegisterStorerecordServer(service, &api.Storerecord{Dbcontrol: dbcontrol})
+	rpc.RegisterModuleServer(service, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
+	rpc.RegisterExpirationpushServer(service, &api.Expirationpush{ClientList: clientexpirationchannel, Dbcontrol: dbcontrol, Logmar: logmar})
+	rpc.RegisterStorerecordServer(service, &api.Storerecord{Dbcontrol: dbcontrol, Logmar: logmar})
 	reflection.Register(service)
 
-	log.Println("Listening on :9999")
+	log.Printf("Listening on :%s\r\n", servicesconfiguration.GRPC.Port)
 	if err = service.Serve(lis); err != nil {
 		panic(err)
 	}
@@ -113,17 +218,21 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 		return err
 	}
 
-	for _, item := range filelist {
+	logmar.GetLogger("Dumplocalmodules").Info(fmt.Sprintf("Check Local Module(%v)", len(filelist)))
+	for index, item := range filelist {
 		if item.IsDir() {
 			continue
 		}
 
 		var filename string
 		if dberr := ctx.Model(db.Module{}).Select(`name`).Where(db.Module{Name: item.Name()}).First(&filename).Error; dberr != nil {
-			fmt.Printf("Discover new module(%s)", item.Name())
+			logmar.GetLogger("Dumplocalmodules").Info(fmt.Sprintf("(%v)Discover new module(%s)", index, item.Name()))
+			fmt.Printf("(%v)Discover new module(%s)", index, item.Name())
+
 			var crc uint64
 			var size int64
 			if crc, size, err = env.CRC64(strings.Join([]string{servicesconfiguration.Setting.Common, item.Name()}, `\`), 128*1024*1024, 8); err != nil {
+				logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
 				fmt.Printf("----> Failed(%s)\r\n", err.Error())
 				continue
 			}
@@ -136,10 +245,13 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 					Lastuse:    time.Now(),
 					Expiration: time.Now().Add(time.Hour * 24 * time.Duration(servicesconfiguration.Setting.Expiration)),
 				}).Error; err != nil {
+					logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
 					fmt.Printf("----> Failed(%s)\r\n", err.Error())
 					continue
 				}
+				logmar.GetLogger("Dumplocalmodules").Info("----> OK")
 			} else {
+				logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", dberr.Error()))
 				fmt.Printf("----> Failed(%s)\r\n", dberr.Error())
 				continue
 			}
@@ -149,27 +261,230 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 	return nil
 }
 
+// hotloadding 热重载函数 重载config
+func hotloadding(fp string) {
+	var (
+		monitorchange = make(chan notify.EventInfo, 10)
+	)
+
+	if err = notify.Watch(fp, monitorchange, notify.FileNotifyChangeLastWrite); err != nil {
+		panic(err)
+	}
+
+	for {
+		select {
+		case finfo := <-monitorchange:
+			switch strings.ToUpper(filepath.Base(finfo.Path())) {
+			case "CONFIG.YAML":
+				f, err := os.ReadFile(finfo.Path())
+				if err != nil {
+					fmt.Println("Error: failed to read config file:", finfo.Path())
+					continue
+				}
+
+				if err = yaml.Unmarshal(f, &servicesconfiguration); err != nil {
+					fmt.Println("Error: failed to unmarshal config file:", finfo.Path())
+					continue
+				}
+			}
+		}
+	}
+}
+
+// expirationcheck 过期Module的检查, 备份, 移除数据库记录已经本地文件
+func expirationcheck(ctx *gorm.DB) {
+	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckExpiration) * time.Second)
+	for range ticker.C {
+		var expirationlist = make([]db.Module, 0)
+		// 查询已经过期的Module文件
+		if err = ctx.Model(db.Module{}).Where(`expiration <?`, time.Now()).Find(&expirationlist).Error; err != nil {
+			logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Query Expiration Module(%s)", err.Error()))
+			continue
+		}
+
+		if len(expirationlist) == 0 {
+			logmar.GetLogger("Expiration").Info("Expiration Module is empty!")
+			continue
+		}
+
+		logmar.GetLogger("Expiration").Info(fmt.Sprintf("Expiration Module(%v)", len(expirationlist)))
+		for index, item := range expirationlist {
+			logmar.GetLogger("Expiration").Info(fmt.Sprintf("(%v)Backup Module files ----> %s", index+1, item.Name))
+			backcontext, cancel := context.WithCancel(context.Background())
+
+			if err = env.Uploadtoback(
+				backcontext,
+				fmt.Sprintf("%s:%s", servicesconfiguration.Backup.Host, servicesconfiguration.Backup.Port),
+				servicesconfiguration.Setting.Common,
+				item,
+				logmar.GetLogger("Expiration"),
+			); err != nil {
+				cancel()
+				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup Module (%s)", err.Error()))
+				continue
+			}
+
+			logmar.GetLogger("Expiration").Info(fmt.Sprintf("Backup Module (%s) is successfully", item.Name))
+			cancel()
+
+			if err = ctx.Where(`id =?`, item.ID).Delete(&db.Module{}).Error; err != nil {
+				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to deleted database record(%s)", err.Error()))
+				continue
+			}
+
+			if err = os.Remove(strings.Join([]string{servicesconfiguration.Setting.Common, item.Name}, `\`)); err != nil {
+				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to remove local file(%s)", err.Error()))
+				continue
+			}
+
+			logmar.GetLogger("Expiration").Info("Deleted database record is successfully")
+		}
+	}
+}
+
+// clientexpirationcheck 检查客户端的Module过期时间
+func clientexpirationcheck(ctx *gorm.DB) {
+	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckExpiration) * time.Second)
+	for range ticker.C {
+		var clientlist = make([]db.Client, 0)
+
+		if err = ctx.Preload(`Store`).Find(&clientlist).Error; err != nil {
+			logmar.GetLogger("Expirationforclient").Error("Failed to query client record")
+			continue
+		}
+
+		if len(clientlist) == 0 {
+			logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("There is no client connention recoed!"))
+		}
+
+		// 这里是客户端变更过期时间后更新已知Module过期时间的关键代码
+		var updated = false
+		for _, client := range clientlist {
+			if !client.Reload {
+				logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Update cliect expiration to(%dDay)", client.Maxretentiondays))
+				for _, item := range client.Store {
+					updated = true
+					if err = ctx.Model(db.Clientmodule{}).Where(`id = ?`, item.ID).Update(`expiration`, item.CreatedAt.Add(time.Duration(client.Maxretentiondays)*time.Hour*24)).Error; err != nil {
+						logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Failed to update cliect expiration to(%dDay)", client.Maxretentiondays))
+						continue
+					}
+				}
+
+				if err = ctx.Model(db.Client{}).Where(db.Client{Serveraddress: client.Serveraddress}).Update(`reload`, true).Error; err != nil {
+					logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Failed to update client reload status(%s)", err.Error()))
+				}
+			}
+		}
+
+		if updated {
+			if err = ctx.Preload(`Store`).Find(&clientlist).Error; err != nil {
+				logmar.GetLogger("Expirationforclient").Error("Failed to query client record")
+				continue
+			}
+		}
+
+		logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Check client(%v)", len(clientlist)))
+		for index, item := range clientlist {
+			if _, ok := clientexpirationchannel[item.Serveraddress]; !ok {
+				logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("(%v)Client address (%s) is offline, skip checked", index, item.Serveraddress))
+				continue
+			}
+
+			logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("(%v)Client address (%s)", index, item.Serveraddress))
+			var expirationlist = make(map[string]*rpc.ExpirationPushResponse)
+			for _, val := range item.Store {
+				if time.Now().After(val.Expiration) {
+					if err = ctx.Where(`id =?`, val.ID).Delete(&db.Clientmodule{}).Error; err != nil {
+						logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Failed to delete database recoed(%s)", val.Name))
+						continue
+					}
+
+					logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Add Expiration Module Partnumber: %s Modulename: %s", val.Partnumber, val.Name))
+
+					if _, exist := expirationlist[val.Partnumber]; exist {
+						expirationlist[val.Partnumber].Modulename = append(expirationlist[val.Partnumber].Modulename, val.Name)
+					} else {
+						expirationlist[val.Partnumber] = new(rpc.ExpirationPushResponse)
+						expirationlist[val.Partnumber] = &rpc.ExpirationPushResponse{
+							Partnumber: val.Partnumber,
+							Modulename: []string{val.Name},
+							Heartbeat:  "",
+						}
+					}
+				}
+			}
+
+			if len(expirationlist) > 0 {
+				// 通知客户端删除已经过期的Module
+				for _, val := range expirationlist {
+					clientexpirationchannel[item.Serveraddress] <- val
+				}
+			}
+		}
+	}
+}
+
+// readrunpath 获取程序运行路径
 func readrunpath() string {
 	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	res, _ := filepath.EvalSymlinks(filepath.Dir(exePath))
-
-	dir := os.Getenv("TEMP")
-	if dir == "" {
-		dir = os.Getenv("TMP")
-	}
-
-	rep, _ := filepath.EvalSymlinks(dir)
-	if strings.Contains(res, rep) {
-		var abPath string
-		_, filename, _, ok := runtime.Caller(0)
-		if ok {
-			abPath = path.Dir(filename)
+	if err == nil {
+		// 解析符号链接
+		if realPath, err := filepath.EvalSymlinks(exePath); err == nil {
+			exePath = realPath
 		}
-		return abPath
+
+		// 检查是否为go run临时文件
+		tempDir := filepath.ToSlash(os.TempDir())
+		absPath := filepath.ToSlash(exePath)
+		if !strings.Contains(absPath, tempDir) ||
+			(!strings.Contains(absPath, "go-build") && (!strings.Contains(absPath, "go-run"))) {
+			return filepath.Dir(exePath)
+		}
 	}
-	return res
+
+	// 2. 尝试通过调用栈获取项目根目录
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		currentDir := filepath.Dir(filename)
+		// 向上查找项目特征文件
+		for depth := 0; depth < 10; depth++ {
+			// 检查项目特征文件
+			checks := []string{"go.mod", ".git", "main.go"}
+			for _, check := range checks {
+				if _, err := os.Stat(filepath.Join(currentDir, check)); err == nil {
+					return currentDir
+				}
+			}
+
+			// 向上一级目录
+			parent := filepath.Dir(currentDir)
+			if parent == currentDir {
+				break
+			}
+			currentDir = parent
+		}
+	}
+
+	// 3. 回退到当前工作目录
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+
+	// 4. 最终回退
+	return "."
+}
+
+func Programinformation(version string) {
+	var programname = `
+
+███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗██╗     ███████╗██████╗  █████╗ ██╗      █████╗ ███╗   ██╗ ██████╗██╗███╗   ██╗ ██████╗       ███████╗
+████╗ ████║██╔═══██╗██╔══██╗██║   ██║██║     ██╔════╝██╔══██╗██╔══██╗██║     ██╔══██╗████╗  ██║██╔════╝██║████╗  ██║██╔════╝       ██╔════╝
+██╔████╔██║██║   ██║██║  ██║██║   ██║██║     █████╗  ██████╔╝███████║██║     ███████║██╔██╗ ██║██║     ██║██╔██╗ ██║██║  ███╗█████╗███████╗
+██║╚██╔╝██║██║   ██║██║  ██║██║   ██║██║     ██╔══╝  ██╔══██╗██╔══██║██║     ██╔══██║██║╚██╗██║██║     ██║██║╚██╗██║██║   ██║╚════╝╚════██║
+██║ ╚═╝ ██║╚██████╔╝██████╔╝╚██████╔╝███████╗███████╗██████╔╝██║  ██║███████╗██║  ██║██║ ╚████║╚██████╗██║██║ ╚████║╚██████╔╝      ███████║
+╚═╝     ╚═╝ ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚═════╝ ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝╚═╝╚═╝  ╚═══╝ ╚═════╝       ╚══════╝
+                                                                                                                                           
+`
+
+	fmt.Printf("%s\r\n\r\nVersion: %s\r\n", programname, version)
 }

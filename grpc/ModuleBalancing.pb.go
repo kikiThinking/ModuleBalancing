@@ -24,7 +24,7 @@ const (
 type StorerecordRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Heartbeat     string                 `protobuf:"bytes,1,opt,name=heartbeat,proto3" json:"heartbeat,omitempty"`
-	Serveraddress string                 `protobuf:"bytes,2,opt,name=Serveraddress,proto3" json:"Serveraddress,omitempty"`
+	Serveraddress string                 `protobuf:"bytes,2,opt,name=serveraddress,proto3" json:"serveraddress,omitempty"`
 	Partnumber    string                 `protobuf:"bytes,3,opt,name=partnumber,proto3" json:"partnumber,omitempty"`
 	Modulenames   []string               `protobuf:"bytes,4,rep,name=modulenames,proto3" json:"modulenames,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -133,17 +133,122 @@ func (x *StorerecordResponse) GetIsok() bool {
 	return false
 }
 
+type IntegrityVerificationRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegrityVerificationRequest) Reset() {
+	*x = IntegrityVerificationRequest{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegrityVerificationRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegrityVerificationRequest) ProtoMessage() {}
+
+func (x *IntegrityVerificationRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegrityVerificationRequest.ProtoReflect.Descriptor instead.
+func (*IntegrityVerificationRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *IntegrityVerificationRequest) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+type IntegrityVerificationResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Size          string                 `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
+	Crc64         string                 `protobuf:"bytes,3,opt,name=crc64,proto3" json:"crc64,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IntegrityVerificationResponse) Reset() {
+	*x = IntegrityVerificationResponse{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IntegrityVerificationResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IntegrityVerificationResponse) ProtoMessage() {}
+
+func (x *IntegrityVerificationResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IntegrityVerificationResponse.ProtoReflect.Descriptor instead.
+func (*IntegrityVerificationResponse) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *IntegrityVerificationResponse) GetFilename() string {
+	if x != nil {
+		return x.Filename
+	}
+	return ""
+}
+
+func (x *IntegrityVerificationResponse) GetSize() string {
+	if x != nil {
+		return x.Size
+	}
+	return ""
+}
+
+func (x *IntegrityVerificationResponse) GetCrc64() string {
+	if x != nil {
+		return x.Crc64
+	}
+	return ""
+}
+
 type ModuleDownloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Filename      string                 `protobuf:"bytes,1,opt,name=Filename,proto3" json:"Filename,omitempty"`
-	Offset        int64                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`
+	Serveraddress string                 `protobuf:"bytes,1,opt,name=serveraddress,proto3" json:"serveraddress,omitempty"`
+	Filename      string                 `protobuf:"bytes,2,opt,name=filename,proto3" json:"filename,omitempty"`
+	Offset        int64                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ModuleDownloadRequest) Reset() {
 	*x = ModuleDownloadRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -155,7 +260,7 @@ func (x *ModuleDownloadRequest) String() string {
 func (*ModuleDownloadRequest) ProtoMessage() {}
 
 func (x *ModuleDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -168,7 +273,14 @@ func (x *ModuleDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleDownloadRequest.ProtoReflect.Descriptor instead.
 func (*ModuleDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{2}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *ModuleDownloadRequest) GetServeraddress() string {
+	if x != nil {
+		return x.Serveraddress
+	}
+	return ""
 }
 
 func (x *ModuleDownloadRequest) GetFilename() string {
@@ -185,7 +297,7 @@ func (x *ModuleDownloadRequest) GetOffset() int64 {
 	return 0
 }
 
-type ModuleDownloadResponse struct {
+type ModulePushResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Content       []byte                 `protobuf:"bytes,4,opt,name=content,proto3" json:"content,omitempty"`
 	Completed     bool                   `protobuf:"varint,3,opt,name=completed,proto3" json:"completed,omitempty"`
@@ -193,21 +305,21 @@ type ModuleDownloadResponse struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ModuleDownloadResponse) Reset() {
-	*x = ModuleDownloadResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+func (x *ModulePushResponse) Reset() {
+	*x = ModulePushResponse{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ModuleDownloadResponse) String() string {
+func (x *ModulePushResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ModuleDownloadResponse) ProtoMessage() {}
+func (*ModulePushResponse) ProtoMessage() {}
 
-func (x *ModuleDownloadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+func (x *ModulePushResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -218,51 +330,51 @@ func (x *ModuleDownloadResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ModuleDownloadResponse.ProtoReflect.Descriptor instead.
-func (*ModuleDownloadResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{3}
+// Deprecated: Use ModulePushResponse.ProtoReflect.Descriptor instead.
+func (*ModulePushResponse) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *ModuleDownloadResponse) GetContent() []byte {
+func (x *ModulePushResponse) GetContent() []byte {
 	if x != nil {
 		return x.Content
 	}
 	return nil
 }
 
-func (x *ModuleDownloadResponse) GetCompleted() bool {
+func (x *ModulePushResponse) GetCompleted() bool {
 	if x != nil {
 		return x.Completed
 	}
 	return false
 }
 
-type FileInformation struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	MD5           string                 `protobuf:"bytes,5,opt,name=MD5,proto3" json:"MD5,omitempty"`
-	Size          int64                  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
-	Modify        int64                  `protobuf:"varint,3,opt,name=modify,proto3" json:"modify,omitempty"` // 修改时间 (Unix 时间戳)
-	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
-	Create        int64                  `protobuf:"varint,4,opt,name=create,proto3" json:"create,omitempty"` // 创建时间 (Unix 时间戳 - 非所有文件系统都支持)
+type UploadRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Data:
+	//
+	//	*UploadRequest_Information
+	//	*UploadRequest_ChunkData
+	Data          isUploadRequest_Data `protobuf_oneof:"data"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *FileInformation) Reset() {
-	*x = FileInformation{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+func (x *UploadRequest) Reset() {
+	*x = UploadRequest{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *FileInformation) String() string {
+func (x *UploadRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*FileInformation) ProtoMessage() {}
+func (*UploadRequest) ProtoMessage() {}
 
-func (x *FileInformation) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+func (x *UploadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -273,44 +385,178 @@ func (x *FileInformation) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use FileInformation.ProtoReflect.Descriptor instead.
-func (*FileInformation) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{4}
+// Deprecated: Use UploadRequest.ProtoReflect.Descriptor instead.
+func (*UploadRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *FileInformation) GetMD5() string {
+func (x *UploadRequest) GetData() isUploadRequest_Data {
 	if x != nil {
-		return x.MD5
+		return x.Data
 	}
-	return ""
+	return nil
 }
 
-func (x *FileInformation) GetSize() int64 {
+func (x *UploadRequest) GetInformation() *Finformation {
 	if x != nil {
-		return x.Size
+		if x, ok := x.Data.(*UploadRequest_Information); ok {
+			return x.Information
+		}
 	}
-	return 0
+	return nil
 }
 
-func (x *FileInformation) GetModify() int64 {
+func (x *UploadRequest) GetChunkData() []byte {
 	if x != nil {
-		return x.Modify
+		if x, ok := x.Data.(*UploadRequest_ChunkData); ok {
+			return x.ChunkData
+		}
 	}
-	return 0
+	return nil
 }
 
-func (x *FileInformation) GetFilename() string {
+type isUploadRequest_Data interface {
+	isUploadRequest_Data()
+}
+
+type UploadRequest_Information struct {
+	Information *Finformation `protobuf:"bytes,1,opt,name=information,proto3,oneof"`
+}
+
+type UploadRequest_ChunkData struct {
+	ChunkData []byte `protobuf:"bytes,2,opt,name=chunk_data,json=chunkData,proto3,oneof"`
+}
+
+func (*UploadRequest_Information) isUploadRequest_Data() {}
+
+func (*UploadRequest_ChunkData) isUploadRequest_Data() {}
+
+type Finformation struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
+	Size          string                 `protobuf:"bytes,2,opt,name=size,proto3" json:"size,omitempty"`
+	Crc64         string                 `protobuf:"bytes,3,opt,name=crc64,proto3" json:"crc64,omitempty"`
+	MUnix         string                 `protobuf:"bytes,4,opt,name=MUnix,proto3" json:"MUnix,omitempty"`
+	CUnix         string                 `protobuf:"bytes,5,opt,name=CUnix,proto3" json:"CUnix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Finformation) Reset() {
+	*x = Finformation{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Finformation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Finformation) ProtoMessage() {}
+
+func (x *Finformation) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Finformation.ProtoReflect.Descriptor instead.
+func (*Finformation) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Finformation) GetFilename() string {
 	if x != nil {
 		return x.Filename
 	}
 	return ""
 }
 
-func (x *FileInformation) GetCreate() int64 {
+func (x *Finformation) GetSize() string {
 	if x != nil {
-		return x.Create
+		return x.Size
 	}
-	return 0
+	return ""
+}
+
+func (x *Finformation) GetCrc64() string {
+	if x != nil {
+		return x.Crc64
+	}
+	return ""
+}
+
+func (x *Finformation) GetMUnix() string {
+	if x != nil {
+		return x.MUnix
+	}
+	return ""
+}
+
+func (x *Finformation) GetCUnix() string {
+	if x != nil {
+		return x.CUnix
+	}
+	return ""
+}
+
+type UploadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UploadResponse) Reset() {
+	*x = UploadResponse{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UploadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UploadResponse) ProtoMessage() {}
+
+func (x *UploadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UploadResponse.ProtoReflect.Descriptor instead.
+func (*UploadResponse) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *UploadResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *UploadResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
 }
 
 type AnalyzingRequest struct {
@@ -323,7 +569,7 @@ type AnalyzingRequest struct {
 
 func (x *AnalyzingRequest) Reset() {
 	*x = AnalyzingRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -335,7 +581,7 @@ func (x *AnalyzingRequest) String() string {
 func (*AnalyzingRequest) ProtoMessage() {}
 
 func (x *AnalyzingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -348,7 +594,7 @@ func (x *AnalyzingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzingRequest.ProtoReflect.Descriptor instead.
 func (*AnalyzingRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{5}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *AnalyzingRequest) GetFilename() string {
@@ -375,7 +621,7 @@ type AnalyzingResponse struct {
 
 func (x *AnalyzingResponse) Reset() {
 	*x = AnalyzingResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -387,7 +633,7 @@ func (x *AnalyzingResponse) String() string {
 func (*AnalyzingResponse) ProtoMessage() {}
 
 func (x *AnalyzingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -400,7 +646,7 @@ func (x *AnalyzingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzingResponse.ProtoReflect.Descriptor instead.
 func (*AnalyzingResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{6}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *AnalyzingResponse) GetModulename() []string {
@@ -421,16 +667,13 @@ type ExpirationPushRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	Serveraddress    string                 `protobuf:"bytes,1,opt,name=serveraddress,proto3" json:"serveraddress,omitempty"`
 	Maxretentiondays int64                  `protobuf:"varint,2,opt,name=maxretentiondays,proto3" json:"maxretentiondays,omitempty"`
-	Checkdir         string                 `protobuf:"bytes,3,opt,name=checkdir,proto3" json:"checkdir,omitempty"`
-	Outdir           string                 `protobuf:"bytes,4,opt,name=outdir,proto3" json:"outdir,omitempty"`
-	Backdir          string                 `protobuf:"bytes,5,opt,name=backdir,proto3" json:"backdir,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ExpirationPushRequest) Reset() {
 	*x = ExpirationPushRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -442,7 +685,7 @@ func (x *ExpirationPushRequest) String() string {
 func (*ExpirationPushRequest) ProtoMessage() {}
 
 func (x *ExpirationPushRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -455,7 +698,7 @@ func (x *ExpirationPushRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpirationPushRequest.ProtoReflect.Descriptor instead.
 func (*ExpirationPushRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{7}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ExpirationPushRequest) GetServeraddress() string {
@@ -472,27 +715,6 @@ func (x *ExpirationPushRequest) GetMaxretentiondays() int64 {
 	return 0
 }
 
-func (x *ExpirationPushRequest) GetCheckdir() string {
-	if x != nil {
-		return x.Checkdir
-	}
-	return ""
-}
-
-func (x *ExpirationPushRequest) GetOutdir() string {
-	if x != nil {
-		return x.Outdir
-	}
-	return ""
-}
-
-func (x *ExpirationPushRequest) GetBackdir() string {
-	if x != nil {
-		return x.Backdir
-	}
-	return ""
-}
-
 type ExpirationPushResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Partnumber    string                 `protobuf:"bytes,1,opt,name=partnumber,proto3" json:"partnumber,omitempty"`
@@ -504,7 +726,7 @@ type ExpirationPushResponse struct {
 
 func (x *ExpirationPushResponse) Reset() {
 	*x = ExpirationPushResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -516,7 +738,7 @@ func (x *ExpirationPushResponse) String() string {
 func (*ExpirationPushResponse) ProtoMessage() {}
 
 func (x *ExpirationPushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -529,7 +751,7 @@ func (x *ExpirationPushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpirationPushResponse.ProtoReflect.Descriptor instead.
 func (*ExpirationPushResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{8}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ExpirationPushResponse) GetPartnumber() string {
@@ -560,25 +782,40 @@ const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\x1agrpc/ModuleBalancing.proto\x12\x0fModuleBalancing\"\x9a\x01\n" +
 	"\x12StorerecordRequest\x12\x1c\n" +
 	"\theartbeat\x18\x01 \x01(\tR\theartbeat\x12$\n" +
-	"\rServeraddress\x18\x02 \x01(\tR\rServeraddress\x12\x1e\n" +
+	"\rserveraddress\x18\x02 \x01(\tR\rserveraddress\x12\x1e\n" +
 	"\n" +
 	"partnumber\x18\x03 \x01(\tR\n" +
 	"partnumber\x12 \n" +
 	"\vmodulenames\x18\x04 \x03(\tR\vmodulenames\")\n" +
 	"\x13StorerecordResponse\x12\x12\n" +
-	"\x04isok\x18\x01 \x01(\bR\x04isok\"K\n" +
-	"\x15ModuleDownloadRequest\x12\x1a\n" +
-	"\bFilename\x18\x01 \x01(\tR\bFilename\x12\x16\n" +
-	"\x06offset\x18\x02 \x01(\x03R\x06offset\"P\n" +
-	"\x16ModuleDownloadResponse\x12\x18\n" +
+	"\x04isok\x18\x01 \x01(\bR\x04isok\":\n" +
+	"\x1cIntegrityVerificationRequest\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\"e\n" +
+	"\x1dIntegrityVerificationResponse\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\tR\x04size\x12\x14\n" +
+	"\x05crc64\x18\x03 \x01(\tR\x05crc64\"q\n" +
+	"\x15ModuleDownloadRequest\x12$\n" +
+	"\rserveraddress\x18\x01 \x01(\tR\rserveraddress\x12\x1a\n" +
+	"\bfilename\x18\x02 \x01(\tR\bfilename\x12\x16\n" +
+	"\x06offset\x18\x03 \x01(\x03R\x06offset\"L\n" +
+	"\x12ModulePushResponse\x12\x18\n" +
 	"\acontent\x18\x04 \x01(\fR\acontent\x12\x1c\n" +
-	"\tcompleted\x18\x03 \x01(\bR\tcompleted\"\x83\x01\n" +
-	"\x0fFileInformation\x12\x10\n" +
-	"\x03MD5\x18\x05 \x01(\tR\x03MD5\x12\x12\n" +
-	"\x04size\x18\x02 \x01(\x03R\x04size\x12\x16\n" +
-	"\x06modify\x18\x03 \x01(\x03R\x06modify\x12\x1a\n" +
-	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
-	"\x06create\x18\x04 \x01(\x03R\x06create\"F\n" +
+	"\tcompleted\x18\x03 \x01(\bR\tcompleted\"{\n" +
+	"\rUploadRequest\x12A\n" +
+	"\vinformation\x18\x01 \x01(\v2\x1d.ModuleBalancing.finformationH\x00R\vinformation\x12\x1f\n" +
+	"\n" +
+	"chunk_data\x18\x02 \x01(\fH\x00R\tchunkDataB\x06\n" +
+	"\x04data\"\x80\x01\n" +
+	"\ffinformation\x12\x1a\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x12\n" +
+	"\x04size\x18\x02 \x01(\tR\x04size\x12\x14\n" +
+	"\x05crc64\x18\x03 \x01(\tR\x05crc64\x12\x14\n" +
+	"\x05MUnix\x18\x04 \x01(\tR\x05MUnix\x12\x14\n" +
+	"\x05CUnix\x18\x05 \x01(\tR\x05CUnix\"D\n" +
+	"\x0eUploadResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\"F\n" +
 	"\x10analyzingRequest\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x16\n" +
 	"\x06fbytes\x18\x02 \x01(\fR\x06fbytes\"[\n" +
@@ -586,13 +823,10 @@ const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\n" +
 	"modulename\x18\x01 \x03(\tR\n" +
 	"modulename\x12&\n" +
-	"\x0eanalyzingerror\x18\x02 \x03(\tR\x0eanalyzingerror\"\xb7\x01\n" +
+	"\x0eanalyzingerror\x18\x02 \x03(\tR\x0eanalyzingerror\"i\n" +
 	"\x15ExpirationPushRequest\x12$\n" +
 	"\rserveraddress\x18\x01 \x01(\tR\rserveraddress\x12*\n" +
-	"\x10maxretentiondays\x18\x02 \x01(\x03R\x10maxretentiondays\x12\x1a\n" +
-	"\bcheckdir\x18\x03 \x01(\tR\bcheckdir\x12\x16\n" +
-	"\x06outdir\x18\x04 \x01(\tR\x06outdir\x12\x18\n" +
-	"\abackdir\x18\x05 \x01(\tR\abackdir\"v\n" +
+	"\x10maxretentiondays\x18\x02 \x01(\x03R\x10maxretentiondays\"v\n" +
 	"\x16ExpirationPushResponse\x12\x1e\n" +
 	"\n" +
 	"partnumber\x18\x01 \x01(\tR\n" +
@@ -600,10 +834,12 @@ const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\n" +
 	"modulename\x18\x02 \x03(\tR\n" +
 	"modulename\x12\x1c\n" +
-	"\theartbeat\x18\x03 \x01(\tR\theartbeat2\xbb\x01\n" +
-	"\x06Module\x12]\n" +
-	"\bDownload\x12&.ModuleBalancing.ModuleDownloadRequest\x1a'.ModuleBalancing.ModuleDownloadResponse0\x01\x12R\n" +
-	"\tAnalyzing\x12!.ModuleBalancing.analyzingRequest\x1a\".ModuleBalancing.analyzingResponse2q\n" +
+	"\theartbeat\x18\x03 \x01(\tR\theartbeat2\xf8\x02\n" +
+	"\x06Module\x12K\n" +
+	"\x06Upload\x12\x1e.ModuleBalancing.UploadRequest\x1a\x1f.ModuleBalancing.UploadResponse(\x01\x12R\n" +
+	"\tAnalyzing\x12!.ModuleBalancing.analyzingRequest\x1a\".ModuleBalancing.analyzingResponse\x12v\n" +
+	"\x15IntegrityVerification\x12-.ModuleBalancing.IntegrityVerificationRequest\x1a..ModuleBalancing.IntegrityVerificationResponse\x12U\n" +
+	"\x04Push\x12&.ModuleBalancing.ModuleDownloadRequest\x1a#.ModuleBalancing.ModulePushResponse0\x012q\n" +
 	"\x0eExpirationpush\x12_\n" +
 	"\n" +
 	"Expiration\x12&.ModuleBalancing.ExpirationPushRequest\x1a'.ModuleBalancing.ExpirationPushResponse0\x012o\n" +
@@ -622,32 +858,41 @@ func file_grpc_ModuleBalancing_proto_rawDescGZIP() []byte {
 	return file_grpc_ModuleBalancing_proto_rawDescData
 }
 
-var file_grpc_ModuleBalancing_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_grpc_ModuleBalancing_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_grpc_ModuleBalancing_proto_goTypes = []any{
-	(*StorerecordRequest)(nil),     // 0: ModuleBalancing.StorerecordRequest
-	(*StorerecordResponse)(nil),    // 1: ModuleBalancing.StorerecordResponse
-	(*ModuleDownloadRequest)(nil),  // 2: ModuleBalancing.ModuleDownloadRequest
-	(*ModuleDownloadResponse)(nil), // 3: ModuleBalancing.ModuleDownloadResponse
-	(*FileInformation)(nil),        // 4: ModuleBalancing.FileInformation
-	(*AnalyzingRequest)(nil),       // 5: ModuleBalancing.analyzingRequest
-	(*AnalyzingResponse)(nil),      // 6: ModuleBalancing.analyzingResponse
-	(*ExpirationPushRequest)(nil),  // 7: ModuleBalancing.ExpirationPushRequest
-	(*ExpirationPushResponse)(nil), // 8: ModuleBalancing.ExpirationPushResponse
+	(*StorerecordRequest)(nil),            // 0: ModuleBalancing.StorerecordRequest
+	(*StorerecordResponse)(nil),           // 1: ModuleBalancing.StorerecordResponse
+	(*IntegrityVerificationRequest)(nil),  // 2: ModuleBalancing.IntegrityVerificationRequest
+	(*IntegrityVerificationResponse)(nil), // 3: ModuleBalancing.IntegrityVerificationResponse
+	(*ModuleDownloadRequest)(nil),         // 4: ModuleBalancing.ModuleDownloadRequest
+	(*ModulePushResponse)(nil),            // 5: ModuleBalancing.ModulePushResponse
+	(*UploadRequest)(nil),                 // 6: ModuleBalancing.UploadRequest
+	(*Finformation)(nil),                  // 7: ModuleBalancing.finformation
+	(*UploadResponse)(nil),                // 8: ModuleBalancing.UploadResponse
+	(*AnalyzingRequest)(nil),              // 9: ModuleBalancing.analyzingRequest
+	(*AnalyzingResponse)(nil),             // 10: ModuleBalancing.analyzingResponse
+	(*ExpirationPushRequest)(nil),         // 11: ModuleBalancing.ExpirationPushRequest
+	(*ExpirationPushResponse)(nil),        // 12: ModuleBalancing.ExpirationPushResponse
 }
 var file_grpc_ModuleBalancing_proto_depIdxs = []int32{
-	2, // 0: ModuleBalancing.Module.Download:input_type -> ModuleBalancing.ModuleDownloadRequest
-	5, // 1: ModuleBalancing.Module.Analyzing:input_type -> ModuleBalancing.analyzingRequest
-	7, // 2: ModuleBalancing.Expirationpush.Expiration:input_type -> ModuleBalancing.ExpirationPushRequest
-	0, // 3: ModuleBalancing.Storerecord.Updatestorerecord:input_type -> ModuleBalancing.StorerecordRequest
-	3, // 4: ModuleBalancing.Module.Download:output_type -> ModuleBalancing.ModuleDownloadResponse
-	6, // 5: ModuleBalancing.Module.Analyzing:output_type -> ModuleBalancing.analyzingResponse
-	8, // 6: ModuleBalancing.Expirationpush.Expiration:output_type -> ModuleBalancing.ExpirationPushResponse
-	1, // 7: ModuleBalancing.Storerecord.Updatestorerecord:output_type -> ModuleBalancing.StorerecordResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	7,  // 0: ModuleBalancing.UploadRequest.information:type_name -> ModuleBalancing.finformation
+	6,  // 1: ModuleBalancing.Module.Upload:input_type -> ModuleBalancing.UploadRequest
+	9,  // 2: ModuleBalancing.Module.Analyzing:input_type -> ModuleBalancing.analyzingRequest
+	2,  // 3: ModuleBalancing.Module.IntegrityVerification:input_type -> ModuleBalancing.IntegrityVerificationRequest
+	4,  // 4: ModuleBalancing.Module.Push:input_type -> ModuleBalancing.ModuleDownloadRequest
+	11, // 5: ModuleBalancing.Expirationpush.Expiration:input_type -> ModuleBalancing.ExpirationPushRequest
+	0,  // 6: ModuleBalancing.Storerecord.Updatestorerecord:input_type -> ModuleBalancing.StorerecordRequest
+	8,  // 7: ModuleBalancing.Module.Upload:output_type -> ModuleBalancing.UploadResponse
+	10, // 8: ModuleBalancing.Module.Analyzing:output_type -> ModuleBalancing.analyzingResponse
+	3,  // 9: ModuleBalancing.Module.IntegrityVerification:output_type -> ModuleBalancing.IntegrityVerificationResponse
+	5,  // 10: ModuleBalancing.Module.Push:output_type -> ModuleBalancing.ModulePushResponse
+	12, // 11: ModuleBalancing.Expirationpush.Expiration:output_type -> ModuleBalancing.ExpirationPushResponse
+	1,  // 12: ModuleBalancing.Storerecord.Updatestorerecord:output_type -> ModuleBalancing.StorerecordResponse
+	7,  // [7:13] is the sub-list for method output_type
+	1,  // [1:7] is the sub-list for method input_type
+	1,  // [1:1] is the sub-list for extension type_name
+	1,  // [1:1] is the sub-list for extension extendee
+	0,  // [0:1] is the sub-list for field type_name
 }
 
 func init() { file_grpc_ModuleBalancing_proto_init() }
@@ -655,13 +900,17 @@ func file_grpc_ModuleBalancing_proto_init() {
 	if File_grpc_ModuleBalancing_proto != nil {
 		return
 	}
+	file_grpc_ModuleBalancing_proto_msgTypes[6].OneofWrappers = []any{
+		(*UploadRequest_Information)(nil),
+		(*UploadRequest_ChunkData)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_ModuleBalancing_proto_rawDesc), len(file_grpc_ModuleBalancing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   3,
 		},
