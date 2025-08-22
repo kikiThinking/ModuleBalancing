@@ -6,9 +6,10 @@ package ModuleBalancing;
 
 service Module {
   rpc Upload (stream UploadRequest) returns (UploadResponse);
+  rpc Push(ModuleDownloadRequest) returns (stream ModulePushResponse);
+  
   rpc Analyzing(analyzingRequest) returns (analyzingResponse);
   rpc IntegrityVerification(IntegrityVerificationRequest) returns (IntegrityVerificationResponse);
-  rpc Push(ModuleDownloadRequest) returns (stream ModulePushResponse);
 }
 
 service Expirationpush {

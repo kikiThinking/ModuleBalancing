@@ -16,15 +16,7 @@ import (
 	rpc "ModuleBalancing/grpc"
 	"ModuleBalancing/logmanager"
 	"context"
-	"errors"
 	"fmt"
-	"github.com/rjeczalik/notify"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-	"gopkg.in/yaml.v3"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"log"
 	"net"
 	"os"
@@ -32,6 +24,15 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/rjeczalik/notify"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"gopkg.in/yaml.v3"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -141,6 +142,14 @@ func init() {
 		MinLevel:     logmanager.INFO,
 	})
 
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Unwanted",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "unwanted"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
 	servicesconfiguration = new(env.Configuration)
 	if err = yaml.Unmarshal(f, servicesconfiguration); err != nil {
 		panic(err)
@@ -195,14 +204,15 @@ func main() {
 	// 过期Module备份和删除
 	go expirationcheck(dbcontrol)
 	go clientexpirationcheck(dbcontrol)
+	go Removeunwantedrecord(dbcontrol)
 
 	service = grpc.NewServer()
 	rpc.RegisterModuleServer(service, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
 	rpc.RegisterExpirationpushServer(service, &api.Expirationpush{ClientList: clientexpirationchannel, Dbcontrol: dbcontrol, Logmar: logmar})
-	rpc.RegisterStorerecordServer(service, &api.Storerecord{Dbcontrol: dbcontrol, Logmar: logmar})
+	rpc.RegisterStorerecordServer(service, &api.Storerecord{Dbcontrol: dbcontrol, Configuration: servicesconfiguration, Logmar: logmar})
 	reflection.Register(service)
 
-	log.Printf("Listening on :%s\r\n", servicesconfiguration.GRPC.Port)
+	fmt.Printf("Listening on :%s\r\n", servicesconfiguration.GRPC.Port)
 	if err = service.Serve(lis); err != nil {
 		panic(err)
 	}
@@ -224,8 +234,13 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 			continue
 		}
 
-		var filename string
-		if dberr := ctx.Model(db.Module{}).Select(`name`).Where(db.Module{Name: item.Name()}).First(&filename).Error; dberr != nil {
+		var exist bool
+		if err = ctx.Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: item.Name()}).Scan(&exist).Error; err != nil {
+			logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("Database error (%s)", err.Error()))
+			return err
+		}
+
+		if !exist {
 			logmar.GetLogger("Dumplocalmodules").Info(fmt.Sprintf("(%v)Discover new module(%s)", index, item.Name()))
 			fmt.Printf("(%v)Discover new module(%s)", index, item.Name())
 
@@ -237,24 +252,24 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 				continue
 			}
 
-			if errors.Is(dberr, gorm.ErrRecordNotFound) {
-				if err = ctx.Model(db.Module{}).Create(&db.Module{
-					Name:       item.Name(),
-					Size:       size,
-					CRC64:      crc,
-					Lastuse:    time.Now(),
-					Expiration: time.Now().Add(time.Hour * 24 * time.Duration(servicesconfiguration.Setting.Expiration)),
-				}).Error; err != nil {
-					logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
-					fmt.Printf("----> Failed(%s)\r\n", err.Error())
-					continue
-				}
-				logmar.GetLogger("Dumplocalmodules").Info("----> OK")
-			} else {
-				logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", dberr.Error()))
-				fmt.Printf("----> Failed(%s)\r\n", dberr.Error())
+			if err = ctx.Clauses(
+				clause.OnConflict{
+					Columns:   []clause.Column{{Name: "name"}},
+					DoUpdates: clause.AssignmentColumns([]string{"deleted_at", "crc64", "size", "lastuse", "expiration"}),
+				}).Create(&db.Module{
+				Name:       item.Name(),
+				Size:       size,
+				CRC64:      crc,
+				Lastuse:    time.Now(),
+				Expiration: time.Now().Add(time.Hour * 24 * time.Duration(servicesconfiguration.Setting.Expiration)),
+			}).Error; err != nil {
+				logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
+				fmt.Printf("----> Failed(%s)\r\n", err.Error())
 				continue
 			}
+
+			logmar.GetLogger("Dumplocalmodules").Info("----> OK")
+			fmt.Println("----> OK")
 		}
 	}
 
@@ -286,6 +301,8 @@ func hotloadding(fp string) {
 					fmt.Println("Error: failed to unmarshal config file:", finfo.Path())
 					continue
 				}
+
+				fmt.Println("services configuration reload successful")
 			}
 		}
 	}
@@ -293,7 +310,7 @@ func hotloadding(fp string) {
 
 // expirationcheck 过期Module的检查, 备份, 移除数据库记录已经本地文件
 func expirationcheck(ctx *gorm.DB) {
-	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckExpiration) * time.Second)
+	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckExpiration) * time.Minute)
 	for range ticker.C {
 		var expirationlist = make([]db.Module, 0)
 		// 查询已经过期的Module文件
@@ -342,9 +359,31 @@ func expirationcheck(ctx *gorm.DB) {
 	}
 }
 
+func Removeunwantedrecord(ctx *gorm.DB) {
+	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckUnwanted) * time.Minute)
+	for range ticker.C {
+		var modelrecord = make([]db.Module, 0)
+		if err = ctx.Find(&modelrecord).Error; err != nil {
+			logmar.GetLogger("Unwanted").Error(err.Error())
+			continue
+		}
+
+		logmar.GetLogger("Unwanted").Info(fmt.Sprintf("The file does not exist, the database record has been deleted(%d)", len(modelrecord)))
+		for _, value := range modelrecord {
+			if _, err = os.Stat(strings.Join([]string{servicesconfiguration.Setting.Common, value.Name}, `\`)); os.IsNotExist(err) {
+				if err = ctx.Where(`id =?`, value.ID).Delete(&db.Module{}).Error; err != nil {
+					logmar.GetLogger("Unwanted").Error(err.Error())
+					continue
+				}
+				logmar.GetLogger("Unwanted").Info(fmt.Sprintf("%s  ----> OK", value.Name))
+			}
+		}
+	}
+}
+
 // clientexpirationcheck 检查客户端的Module过期时间
 func clientexpirationcheck(ctx *gorm.DB) {
-	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckExpiration) * time.Second)
+	var ticker = time.NewTicker(time.Duration(servicesconfiguration.Setting.CheckClientExpiration) * time.Minute)
 	for range ticker.C {
 		var clientlist = make([]db.Client, 0)
 

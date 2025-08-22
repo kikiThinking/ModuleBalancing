@@ -5,7 +5,7 @@ go 1.24.1
 require (
 	github.com/redmask-hb/GoSimplePrint v0.0.0-20210302075413-3a3af92bcb7d
 	github.com/rjeczalik/notify v0.9.3
-	golang.org/x/sys v0.31.0
+	golang.org/x/sys v0.35.0
 	google.golang.org/grpc v1.72.2
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v3 v3.0.1

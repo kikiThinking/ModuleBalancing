@@ -16,15 +16,8 @@ import (
 	"ModuleBalancing/logmanager"
 	"bufio"
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"github.com/redmask-hb/GoSimplePrint/goPrint"
-	"github.com/rjeczalik/notify"
-	"golang.org/x/sys/windows"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"gorm.io/gorm"
 	"hash/crc64"
 	"io"
 	"log"
@@ -37,13 +30,25 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"context"
+
+	"github.com/redmask-hb/GoSimplePrint/goPrint"
+	"github.com/rjeczalik/notify"
+	"golang.org/x/sys/windows"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Configuration struct {
 	Setting struct {
-		Expiration      int64  `yaml:"Expiration"`
-		CheckExpiration int64  `yaml:"CheckExpiration"`
-		Common          string `yaml:"Common"`
+		Expiration            int64  `yaml:"Expiration"`
+		CheckExpiration       int64  `yaml:"CheckExpiration"`
+		CheckUnwanted         int    `yaml:"CheckUnwanted"`
+		CheckClientExpiration int64  `yaml:"CheckClientExpiration"`
+		Common                string `yaml:"Common"`
 	} `yaml:"Setting"`
 	Database struct {
 		Host     string `yaml:"Host"`
@@ -58,6 +63,12 @@ type Configuration struct {
 		Host string `yaml:"Host"`
 		Port string `yaml:"Port"`
 	} `yaml:"Backup"`
+}
+
+type Processprintstruct struct {
+	Size        int
+	conversion  int
+	processspri *goPrint.Bar
 }
 
 var (
@@ -221,12 +232,15 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 			return nil, nil, err
 		}
 
-		if !exist {
+		// 关键代码, 防止文件不存在记录存在的情况, 导致读取文件错误
+		_, fexist := os.Stat(strings.Join([]string{cf.Setting.Common, value}, `\`))
+		if !exist || os.IsNotExist(fexist) {
 			// from backup
 			backctx, cencel := context.WithCancel(context.Background())
-			if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", cf.Backup.Host, cf.Backup.Port), cf.Setting.Common, value, logwrite); err != nil {
+			if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", cf.Backup.Host, cf.Backup.Port), cf.Setting.Common, value, cf.Setting.Expiration, logwrite); err != nil {
 				cencel()
-				analyzingerror = append(analyzingerror, err.Error())
+				analyzingerror = append(analyzingerror, value)
+				logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
 				continue
 			}
 			cencel()
@@ -237,14 +251,15 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 		if err != nil {
 			return nil, nil, err
 		}
+
 		response = append(response, Analyzingmodules(fbyte)...)
 	}
 
 	return response, analyzingerror, nil
 }
 
-func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration int64, monitorpath string) {
-	log.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
+func Monitornewmodule(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {
+	logwri.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
 	var monitorfile = make(chan string, 200)
 	go func() {
 		for {
@@ -276,58 +291,44 @@ func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration i
 				}
 
 				if fclose {
-					var module = new(db.Module)
-					if err = ctx.Model(db.Module{}).Where(db.Module{Name: filepath.Base(fp)}).First(&module).Error; err != nil {
-						if errors.Is(err, gorm.ErrRecordNotFound) {
-							var (
-								CRC  uint64
-								size int64
-							)
+					var (
+						crc  uint64
+						size int64
+					)
 
-							if CRC, size, err = CRC64(fp, 128*1024*1024, 8); err != nil {
-								log.Error(err.Error())
-								continue
-							}
-
-							module.Name = filepath.Base(fp)
-							module.Size = size
-							module.CRC64 = CRC
-							module.Lastuse = time.Now()
-							module.Expiration = time.Now().Add(time.Hour * 24 * time.Duration(expiration))
-
-							if err = ctx.Model(db.Module{}).Create(&module).Error; err != nil {
-								log.Error(err.Error())
-								continue
-							}
-							log.Info(fmt.Sprintf("New Module ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
-								module.Name,
-								module.Size,
-								module.CRC64,
-								module.Lastuse.Format(`2006-01-02 15:04:05`),
-								module.Expiration.Format(`2006-01-02 15:04:05`),
-							))
-						} else {
-							log.Error(err.Error())
-						}
+					if crc, size, err = CRC64(fp, 128*1024*1024, 8); err != nil {
+						logwri.Error(err.Error())
+						continue
 					}
-					//else {
-					//	module.Lastuse = time.Now()
-					//	module.Expiration = time.Now().Add(time.Hour * 24 * time.Duration(expiration))
-					//
-					//	if err = ctx.Model(db.Module{}).Where("id = ?", module.ID).Save(&module).Error; err != nil {
-					//		log.Error("Update Module Failed: " + err.Error())
-					//	} else {
-					//		log.Info(fmt.Sprintf("Update Module ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
-					//			module.Name,
-					//			module.Size,
-					//			module.CRC64,
-					//			module.Lastuse.Format(`2006-01-02 15:04:05`),
-					//			module.Expiration.Format(`2006-01-02 15:04:05`),
-					//		))
-					//	}
-					//}
+
+					var module = db.Module{
+						CRC64:      crc,
+						Name:       filepath.Base(fp),
+						Size:       size,
+						Lastuse:    time.Now(),
+						Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expiration)),
+					}
+
+					// 如果有记录就更新没有就创建
+					if err = ctx.Clauses(
+						clause.OnConflict{
+							Columns:   []clause.Column{{Name: "name"}},
+							DoUpdates: clause.AssignmentColumns([]string{"crc64", "size", "lastuse", "expiration"}),
+						}).Create(&module).Error; err != nil {
+						logwri.Error(err.Error())
+						continue
+					}
+
+					logwri.Info(fmt.Sprintf("Create a new module record ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
+						module.Name,
+						module.Size,
+						module.CRC64,
+						module.Lastuse.Format(`2006-01-02 15:04:05`),
+						module.Expiration.Format(`2006-01-02 15:04:05`),
+					))
+
 				} else {
-					log.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s))", fp))
+					logwri.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s))", fp))
 				}
 			}
 		}
@@ -339,7 +340,7 @@ func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration i
 	)
 
 	if err := notify.Watch(monitorpath, monitorchannel, monitorevent); err != nil {
-		log.Error(err.Error())
+		logwri.Error(err.Error())
 		return
 	}
 
@@ -354,7 +355,7 @@ func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration i
 				fmt.Printf("(%v) %s", number, cre.Path())
 				inf, err := os.Stat(cre.Path())
 				if err != nil {
-					log.Error(err.Error())
+					logwri.Error(err.Error())
 					continue
 				}
 
@@ -363,7 +364,7 @@ func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration i
 				}
 
 				if strings.Contains(cre.Path(), "frombackdownload") {
-					log.Info(fmt.Sprintf("file(%s) from backup server download, skip check!", cre.Path()))
+					logwri.Info(fmt.Sprintf("file(%s) from backup server download, skip check!", cre.Path()))
 					continue
 				}
 
@@ -376,7 +377,7 @@ func Monitornewmodule(ctx *gorm.DB, log *logmanager.BusinessLogger, expiration i
 	}
 }
 
-func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddress, fp, fn string, logmar *logmanager.BusinessLogger) error {
+func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddress, fp, fn string, expirationday int64, logmar *logmanager.BusinessLogger) error {
 	var (
 		stream grpc.ServerStreamingClient[rpc.ModulePushResponse]
 		conn   *grpc.ClientConn
@@ -409,7 +410,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		}
 	}
 
-	if stream, err = dlclient.Push(ctx, &rpc.ModuleDownloadRequest{Filename: fn, Offset: 0}); err != nil {
+	if stream, err = dlclient.Push(ctx, &rpc.ModuleDownloadRequest{Filename: fn, Offset: 0, Serveraddress: "1111"}); err != nil {
 		return err
 	}
 
@@ -441,10 +442,10 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	}
 
 	var offset = 0
-	var bar = goPrint.NewBar(int(filesize) / 1024 / 1024)
-	bar.SetGraph(`=`)
-	bar.SetNotice("(MB)")
-	bar.SetEnds("{", "}")
+
+	var bar = Processprintstruct{Size: int(filesize)}
+	bar.Initialization()
+
 	for {
 		var response *rpc.ModulePushResponse
 		if response, err = stream.Recv(); err != nil {
@@ -483,11 +484,11 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 			return err
 		}
 
-		bar.PrintBar(offset / 1024 / 1024)
 		offset += number
+		bar.ProcessPrint(offset)
 	}
 
-	bar.PrintEnd(fmt.Sprintf("Download file(%s)\t----> finish\r\n", fn))
+	fmt.Printf("\r\nDownload (%s)\t----> finish\r\n\r\n", strings.Join([]string{fp, fn}, `\`))
 
 	_ = f.Close()
 
@@ -522,11 +523,14 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		Name:       filepath.Base(fn),
 		Size:       filesize,
 		Lastuse:    time.Now(),
-		Expiration: time.Now().Add(time.Hour * 24),
+		Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expirationday)),
 	}
 
-	// 从服务器下载的Module写入到db
-	if err = dbcontrol.Model(db.Module{}).Where(db.Module{Name: module.Name}).Save(&module).Error; err != nil {
+	if err = dbcontrol.Clauses(
+		clause.OnConflict{
+			Columns:   []clause.Column{{Name: "name"}},
+			DoUpdates: clause.AssignmentColumns([]string{"deleted_at", "crc64", "size", "lastuse", "expiration"})},
+	).Create(&module).Error; err != nil {
 		return err
 	}
 
@@ -536,11 +540,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	}
 
 	logmar.Info(fmt.Sprintf("Module download completed  --> %-20s  CRC: %-20v  Size: %-10v  Lastuse: %-20s  Expiration: %-20s",
-		filepath.Base(fn),
-		fcrc,
-		filesize,
-		time.Now().Format(`2006-01-02 15:04:05`),
-		time.Now().Add(time.Hour*24).Format(`2006-01-02 15:04:05`),
+		module.Name, module.CRC64, module.Size, module.Lastuse, module.Expiration,
 	))
 
 	return nil
@@ -663,4 +663,39 @@ func Changefiletime(fp string, munix, cunix int64) error {
 	Rtime := ParseWindowsTime(time.Now())
 	defer syscall.CloseHandle(handle)
 	return syscall.SetFileTime(handle, &Ctime, &Rtime, &Mtime)
+}
+
+func (the *Processprintstruct) Initialization() {
+	const (
+		KB = 1 << 10 // 1024
+		MB = 1 << 20 // 1048576
+		GB = 1 << 30 // 1073741824
+		TB = 1 << 40 // 1099511627776
+	)
+	// 使用无表达式的switch进行范围判断
+	switch {
+	case the.Size < KB:
+		the.conversion = 1
+		the.processspri = goPrint.NewBar(the.Size)
+		the.processspri.SetNotice("(Bytes)")
+	case the.Size < MB:
+		the.conversion = KB
+		the.processspri = goPrint.NewBar(the.Size / KB)
+		the.processspri.SetNotice("(KB)")
+	case the.Size < TB:
+		the.conversion = MB
+		the.processspri = goPrint.NewBar(the.Size / MB)
+		the.processspri.SetNotice("(MB)")
+
+	default:
+		the.conversion = TB
+		the.processspri = goPrint.NewBar(the.Size / TB)
+		the.processspri.SetNotice("(TB)")
+	}
+	the.processspri.SetGraph(`=`)
+	the.processspri.SetEnds("|", "|")
+}
+
+func (the *Processprintstruct) ProcessPrint(size int) {
+	the.processspri.PrintBar(size / the.conversion)
 }

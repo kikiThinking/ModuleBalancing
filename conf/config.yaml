@@ -22,6 +22,7 @@ Setting:
   Expiration: 180
   # Second
   CheckExpiration: 10
+  CheckClientExpiration: 10
   Common: E:\Server\Common
 
 
