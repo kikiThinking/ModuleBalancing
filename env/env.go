@@ -39,7 +39,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Configuration struct {
@@ -309,14 +308,29 @@ func Monitornewmodule(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiratio
 						Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expiration)),
 					}
 
-					// 如果有记录就更新没有就创建
-					if err = ctx.Clauses(
-						clause.OnConflict{
-							Columns:   []clause.Column{{Name: "name"}},
-							DoUpdates: clause.AssignmentColumns([]string{"crc64", "size", "lastuse", "expiration"}),
-						}).Create(&module).Error; err != nil {
+					var isexistrecord bool
+					if err = ctx.Unscoped().Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: module.Name}).Scan(&isexistrecord).Error; err != nil {
 						logwri.Error(err.Error())
 						continue
+					}
+
+					if isexistrecord {
+						if err = ctx.Unscoped().Model(db.Module{}).Where(db.Module{Name: module.Name}).
+							Updates(map[string]interface{}{
+								"crc64":      module.CRC64,
+								"size":       module.Size,
+								"lastuse":    module.Lastuse,
+								"expiration": module.Expiration,
+								"deleted_at": nil,
+							}).Error; err != nil {
+							logwri.Error(err.Error())
+							continue
+						}
+					} else {
+						if err = ctx.Model(db.Module{}).Create(&module).Error; err != nil {
+							logwri.Error(err.Error())
+							continue
+						}
 					}
 
 					logwri.Info(fmt.Sprintf("Create a new module record ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
@@ -526,12 +540,40 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expirationday)),
 	}
 
-	if err = dbcontrol.Clauses(
-		clause.OnConflict{
-			Columns:   []clause.Column{{Name: "name"}},
-			DoUpdates: clause.AssignmentColumns([]string{"deleted_at", "crc64", "size", "lastuse", "expiration"})},
-	).Create(&module).Error; err != nil {
+	//if err = dbcontrol.Clauses(
+	//	clause.OnConflict{
+	//		Columns:   []clause.Column{{Name: "name"}},
+	//		DoUpdates: clause.AssignmentColumns([]string{"crc64", "size", "lastuse", "expiration", "deleted_at"})},
+	//).Create(&module).Error; err != nil {
+	//	return err
+	//}
+
+	var isexistrecord bool
+	if err = dbcontrol.Unscoped().
+		Model(db.Module{}).Select(`COUNT(*) > 0`).
+		Where(db.Module{Name: module.Name}).
+		Scan(&isexistrecord).Error; err != nil {
 		return err
+	}
+
+	if isexistrecord {
+		if err = dbcontrol.
+			Unscoped().
+			Model(db.Module{}).
+			Where(db.Module{Name: module.Name}).
+			Updates(map[string]interface{}{
+				"crc64":      module.CRC64,
+				"size":       module.Size,
+				"lastuse":    module.Lastuse,
+				"expiration": module.Expiration,
+				"deleted_at": nil,
+			}).Error; err != nil {
+			return err
+		}
+	} else {
+		if err = dbcontrol.Model(db.Module{}).Create(&module).Error; err != nil {
+			return err
+		}
 	}
 
 	if err = os.Rename(tempfp, dstfp); err != nil {

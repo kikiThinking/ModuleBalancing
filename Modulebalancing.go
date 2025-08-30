@@ -31,7 +31,6 @@ import (
 	"gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 )
 
@@ -45,7 +44,7 @@ var (
 )
 
 func init() {
-	Programinformation("V1.0.0.1")
+	Programinformation()
 	fmt.Println(readrunpath())
 	f, err := os.ReadFile(strings.Join([]string{readrunpath(), "conf", "config.yaml"}, "/"))
 	if err != nil {
@@ -69,8 +68,6 @@ func init() {
 		MaxBackups:   90,
 		MinLevel:     logmanager.INFO,
 	})
-
-	//Clientstore
 
 	// 初始化日志
 	logmar.RegisterBusiness(logmanager.LoggerConfig{
@@ -252,21 +249,59 @@ func Dumpmoduletodatabse(ctx *gorm.DB) error {
 				continue
 			}
 
-			if err = ctx.Clauses(
-				clause.OnConflict{
-					Columns:   []clause.Column{{Name: "name"}},
-					DoUpdates: clause.AssignmentColumns([]string{"deleted_at", "crc64", "size", "lastuse", "expiration"}),
-				}).Create(&db.Module{
+			var module = db.Module{
+				CRC64:      crc,
 				Name:       item.Name(),
 				Size:       size,
-				CRC64:      crc,
 				Lastuse:    time.Now(),
 				Expiration: time.Now().Add(time.Hour * 24 * time.Duration(servicesconfiguration.Setting.Expiration)),
-			}).Error; err != nil {
-				logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
-				fmt.Printf("----> Failed(%s)\r\n", err.Error())
-				continue
 			}
+
+			var isexistrecord bool
+			if err = dbcontrol.Unscoped().
+				Model(db.Module{}).Select(`COUNT(*) > 0`).
+				Where(db.Module{Name: module.Name}).
+				Scan(&isexistrecord).Error; err != nil {
+				return err
+			}
+
+			if isexistrecord {
+				if err = dbcontrol.
+					Unscoped().
+					Model(db.Module{}).
+					Where(db.Module{Name: module.Name}).
+					Updates(map[string]interface{}{
+						"crc64":      module.CRC64,
+						"size":       module.Size,
+						"lastuse":    module.Lastuse,
+						"expiration": module.Expiration,
+						"deleted_at": nil,
+					}).Error; err != nil {
+					logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
+					return err
+				}
+			} else {
+				if err = dbcontrol.Model(db.Module{}).Create(&module).Error; err != nil {
+					logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
+					return err
+				}
+			}
+
+			//if err = ctx.Clauses(
+			//	clause.OnConflict{
+			//		Columns:   []clause.Column{{Name: "name"}},
+			//		DoUpdates: clause.AssignmentColumns([]string{"crc64", "size", "lastuse", "expiration", "deleted_at"}),
+			//	}).Create(&db.Module{
+			//	Name:       item.Name(),
+			//	Size:       size,
+			//	CRC64:      crc,
+			//	Lastuse:    time.Now(),
+			//	Expiration: time.Now().Add(time.Hour * 24 * time.Duration(servicesconfiguration.Setting.Expiration)),
+			//}).Error; err != nil {
+			//	logmar.GetLogger("Dumplocalmodules").Error(fmt.Sprintf("----> Failed(%s)", err.Error()))
+			//	fmt.Printf("----> Failed(%s)\r\n", err.Error())
+			//	continue
+			//}
 
 			logmar.GetLogger("Dumplocalmodules").Info("----> OK")
 			fmt.Println("----> OK")
@@ -513,7 +548,7 @@ func readrunpath() string {
 	return "."
 }
 
-func Programinformation(version string) {
+func Programinformation() {
 	var programname = `
 
 ███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗██╗     ███████╗██████╗  █████╗ ██╗      █████╗ ███╗   ██╗ ██████╗██╗███╗   ██╗ ██████╗       ███████╗
@@ -525,5 +560,5 @@ func Programinformation(version string) {
                                                                                                                                            
 `
 
-	fmt.Printf("%s\r\n\r\nVersion: %s\r\n", programname, version)
+	fmt.Printf("%s\r\n\r\n", programname)
 }
