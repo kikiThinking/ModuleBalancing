@@ -34,12 +34,22 @@ type Module struct {
 	Expiration time.Time `gorm:"type:datetime;column:expiration" json:"expiration"`
 }
 
+type Normal struct {
+	gorm.Model
+	CRC64 uint64 `gorm:"column:crc64;not null"`
+	Name  string `gorm:"type:varchar(255);column:name;unique" json:"name"`
+	Size  int64  `gorm:"column:size;default:0" json:"size"`
+}
+
 type Client struct {
 	gorm.Model
-	Serveraddress    string         `gorm:"type:varchar(30);column:serveraddress;unique" json:"serveraddress"`
-	Maxretentiondays int64          `gorm:"column:maxretentiondays" json:"maxretentiondays"`
-	Reload           bool           `gorm:"column:reload" json:"reload"`
-	Store            []Clientmodule `gorm:"foreignkey:StoreID" json:"StoreID"`
+	AccumulateDownload int64          `gorm:"type:int;column:accumulate_download;default:0" json:"accumulate_download"`
+	Maxretentiondays   int64          `gorm:"column:maxretentiondays" json:"maxretentiondays"`
+	Status             string         `gorm:"type:varchar(10);column:status" json:"status"`
+	Group              string         `gorm:"type:varchar(255);column:group" json:"group"`
+	Serveraddress      string         `gorm:"type:varchar(30);column:serveraddress;unique" json:"serveraddress"`
+	Reload             bool           `gorm:"column:reload" json:"reload"`
+	Store              []Clientmodule `gorm:"foreignkey:StoreID" json:"StoreID"`
 }
 
 type Clientmodule struct {
@@ -50,6 +60,10 @@ type Clientmodule struct {
 	Expiration time.Time `gorm:"type:datetime;column:expiration" json:"expiration"`
 }
 
+func (Normal) TableName() string {
+	return "normalmodules"
+}
+
 func AutoMigrate() []any {
-	return []any{&Module{}, &Client{}, &Clientmodule{}}
+	return []any{&Module{}, &Client{}, &Clientmodule{}, &Normal{}}
 }

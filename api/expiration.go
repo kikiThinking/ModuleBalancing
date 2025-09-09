@@ -14,7 +14,6 @@ import (
 	"ModuleBalancing/db"
 	rpc "ModuleBalancing/grpc"
 	"ModuleBalancing/logmanager"
-	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -44,22 +43,28 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 		messagechannel = the.ClientList[request.Serveraddress]
 	}
 
-	// 判断客户端是否存在记录, 如果不存在则写入db
+	var exist bool
+	if err = the.Dbcontrol.Model(db.Client{}).Select(`COUNT(*) > 0`).Where(&exist).Error; err != nil {
+		return err
+	}
+
 	var clientconfiguration = new(db.Client)
-	if err = the.Dbcontrol.Where(db.Client{Serveraddress: request.Serveraddress}).First(clientconfiguration).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			log.Printf("Create new client ----> %s\r\n", request.Serveraddress)
-			{
-				clientconfiguration.Serveraddress = request.Serveraddress
-				clientconfiguration.Maxretentiondays = request.Maxretentiondays
-				clientconfiguration.Store = make([]db.Clientmodule, 0)
-			}
-			if err = the.Dbcontrol.Model(db.Client{}).Create(clientconfiguration).Error; err != nil {
-				return err
-			}
-		} else {
+	if exist {
+		if err = the.Dbcontrol.Where(db.Client{Serveraddress: request.Serveraddress}).First(clientconfiguration).Error; err != nil {
 			return err
 		}
+	} else {
+		clientconfiguration = &db.Client{
+			Serveraddress:    request.Serveraddress,
+			Maxretentiondays: request.Maxretentiondays,
+			Reload:           true,
+		}
+
+		if err = the.Dbcontrol.Create(clientconfiguration).Error; err != nil {
+			return err
+		}
+
+		log.Printf("Create new client ----> %s\r\n", request.Serveraddress)
 	}
 
 	log.Printf("GRPC Client connect ----> %s\r\n", request.Serveraddress)

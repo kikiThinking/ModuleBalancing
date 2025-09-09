@@ -475,6 +475,16 @@ func clientexpirationcheck(ctx *gorm.DB) {
 
 					logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Add Expiration Module Partnumber: %s Modulename: %s", val.Partnumber, val.Name))
 
+					var normalexist bool
+					if err = ctx.Model(db.Normal{}).Select(`COUNT(*) > 0`).Where(db.Normal{Name: val.Name}).Scan(&normalexist).Error; err != nil {
+						logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Check Normal Module(%s)", val.Name))
+					}
+
+					if normalexist {
+						logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Module(%s) and Normal preload share. skip", val.Name))
+						continue
+					}
+
 					if _, exist := expirationlist[val.Partnumber]; exist {
 						expirationlist[val.Partnumber].Modulename = append(expirationlist[val.Partnumber].Modulename, val.Name)
 					} else {
