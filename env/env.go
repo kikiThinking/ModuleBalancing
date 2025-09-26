@@ -33,6 +33,7 @@ import (
 
 	"context"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/redmask-hb/GoSimplePrint/goPrint"
 	"github.com/rjeczalik/notify"
 	"golang.org/x/sys/windows"
@@ -62,6 +63,11 @@ type Configuration struct {
 		Host string `yaml:"Host"`
 		Port string `yaml:"Port"`
 	} `yaml:"Backup"`
+}
+
+type Accumulate struct {
+	Server string `yaml:"Server"`
+	Size   int64  `yaml:"Size"`
 }
 
 type Processprintstruct struct {
@@ -255,6 +261,142 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 	}
 
 	return response, analyzingerror, nil
+}
+
+// MonitornewmoduleBack
+// 确认notify有问题后切入使用fsnotify重写的函数
+func MonitornewmoduleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {
+	logwri.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
+	var monitorfile = make(chan string, 200)
+	go func() {
+		for {
+			select {
+			case fp := <-monitorfile:
+				var ticker = time.NewTicker(time.Second * 5)
+				var loop = 0
+				var fclose = false
+				for range ticker.C {
+					if loop == 120 {
+						break
+					}
+					if handle, err := windows.CreateFile(
+						windows.StringToUTF16Ptr(fp),
+						windows.GENERIC_READ,
+						0, // 关键：共享模式为0，表示独占访问
+						nil,
+						windows.OPEN_EXISTING,
+						windows.FILE_ATTRIBUTE_NORMAL,
+						0,
+					); err != nil {
+						loop++
+						continue
+					} else {
+						_ = windows.CloseHandle(handle)
+						fclose = true
+						break
+					}
+				}
+
+				if fclose {
+					var (
+						crc  uint64
+						size int64
+					)
+
+					if crc, size, err = CRC64(fp, 128*1024*1024, 8); err != nil {
+						logwri.Error(err.Error())
+						continue
+					}
+
+					var module = db.Module{
+						CRC64:      crc,
+						Name:       filepath.Base(fp),
+						Size:       size,
+						Lastuse:    time.Now(),
+						Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expiration)),
+					}
+
+					var isexistrecord bool
+					if err = ctx.Unscoped().Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: module.Name}).Scan(&isexistrecord).Error; err != nil {
+						logwri.Error(err.Error())
+						continue
+					}
+
+					if isexistrecord {
+						if err = ctx.Unscoped().Model(db.Module{}).Where(db.Module{Name: module.Name}).
+							Updates(map[string]interface{}{
+								"crc64":      module.CRC64,
+								"size":       module.Size,
+								"lastuse":    module.Lastuse,
+								"expiration": module.Expiration,
+								"deleted_at": nil,
+							}).Error; err != nil {
+							logwri.Error(err.Error())
+							continue
+						}
+					} else {
+						if err = ctx.Model(db.Module{}).Create(&module).Error; err != nil {
+							logwri.Error(err.Error())
+							continue
+						}
+					}
+
+					logwri.Info(fmt.Sprintf("Create a new module record ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
+						module.Name,
+						module.Size,
+						module.CRC64,
+						module.Lastuse.Format(`2006-01-02 15:04:05`),
+						module.Expiration.Format(`2006-01-02 15:04:05`),
+					))
+
+				} else {
+					logwri.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s))", fp))
+				}
+			}
+		}
+	}()
+
+	monitordir, err := fsnotify.NewWatcher()
+	if err != nil {
+		logwri.Error(fmt.Sprintf("Monitor Path NewWatcher Error: %s", err.Error()))
+		return
+	}
+
+	if err = monitordir.Add(monitorpath); err != nil {
+		logwri.Error(fmt.Sprintf("Add Monitor Path Error: %s", err.Error()))
+		return
+	}
+
+	var number = 1
+	for {
+		select {
+		case cre := <-monitordir.Events:
+			if cre.Op&fsnotify.Create == fsnotify.Create {
+				fmt.Printf("(%v) %s", number, filepath.Base(cre.Name))
+				inf, err := os.Stat(cre.Name)
+				if err != nil {
+					logwri.Error(err.Error())
+					continue
+				}
+
+				if inf.IsDir() {
+					continue
+				}
+
+				if strings.Contains(cre.Name, "frombackdownload") {
+					logwri.Info(fmt.Sprintf("file(%s) from backup server download, skip check!", cre.Name))
+					continue
+				}
+
+				fmt.Println("\t ----> OK")
+				monitorfile <- cre.Name
+				number++
+			}
+		case err := <-monitordir.Errors:
+			logwri.Error(fmt.Sprintf("Panic: Monitor Path: %s", err.Error()))
+			continue
+		}
+	}
 }
 
 func Monitornewmodule(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {

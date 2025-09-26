@@ -44,7 +44,7 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 	}
 
 	var exist bool
-	if err = the.Dbcontrol.Model(db.Client{}).Select(`COUNT(*) > 0`).Where(&exist).Error; err != nil {
+	if err = the.Dbcontrol.Model(db.Client{}).Select(`COUNT(*) > 0`).Where(db.Client{Serveraddress: request.Serveraddress}).Scan(&exist).Error; err != nil {
 		return err
 	}
 
@@ -58,6 +58,8 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 			Serveraddress:    request.Serveraddress,
 			Maxretentiondays: request.Maxretentiondays,
 			Reload:           true,
+			Status:           "Online",
+			Store:            make([]db.Clientmodule, 0),
 		}
 
 		if err = the.Dbcontrol.Create(clientconfiguration).Error; err != nil {
@@ -68,6 +70,11 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 	}
 
 	log.Printf("GRPC Client connect ----> %s\r\n", request.Serveraddress)
+
+	// 变更Client状态
+	if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("status", "online").Error; err != nil {
+		log.Printf("Failed to Change Client Status: %s\r\n", request.Serveraddress)
+	}
 
 	// 如果客户端传递的配置与数据库中的不一致则更新数据库
 	if clientconfiguration.Maxretentiondays != request.Maxretentiondays {
@@ -87,7 +94,10 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 		for range ticker.C {
 			select {
 			case <-stream.Context().Done():
-				log.Printf("Client %s disconnected", request.Serveraddress)
+				log.Printf("Client %s disconnected\r\n", request.Serveraddress)
+				if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("status", "offline").Error; err != nil {
+					log.Printf("Failed to Change Client Status: %s\r\n", request.Serveraddress)
+				}
 				return
 			default:
 				select {

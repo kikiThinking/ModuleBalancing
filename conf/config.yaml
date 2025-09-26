@@ -21,6 +21,7 @@ Setting:
   # Day
   Expiration: 180
   # Second
+  CheckUnwanted: 500
   CheckExpiration: 10
   CheckClientExpiration: 10
   Common: E:\Server\Common
@@ -28,7 +29,7 @@ Setting:
 
 Database:
   Host: localhost
-  Port: 3305
+  Port: 3306
   Username: root
   Password: Qaqaqa00.0
 

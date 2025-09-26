@@ -15,28 +15,35 @@ import (
 	"ModuleBalancing/env"
 	rpc "ModuleBalancing/grpc"
 	"ModuleBalancing/logmanager"
+	"ModuleBalancing/route"
 	"context"
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rjeczalik/notify"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+
+	_ "net/http/pprof"
 )
 
 var (
 	err                     error
-	service                 *grpc.Server
+	rpcservice              *grpc.Server
 	dbcontrol               *gorm.DB
 	servicesconfiguration   *env.Configuration
 	logmar                  = logmanager.InitManager()
@@ -184,6 +191,7 @@ func init() {
 }
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", servicesconfiguration.GRPC.Port))
 	if err != nil {
 		panic(err)
@@ -191,28 +199,99 @@ func main() {
 
 	go hotloadding(strings.Join([]string{readrunpath(), "conf"}, `\`))
 	// 启动时装载本地没有记录的Module
-	if err = Dumpmoduletodatabse(dbcontrol); err != nil {
-		panic(err)
-	}
+	//if err = Dumpmoduletodatabse(dbcontrol); err != nil {
+	//	panic(err)
+	//}
 
 	// 实时监听Module目录, 当Module目录新增Module时
 	go env.Monitornewmodule(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
 
 	// 过期Module备份和删除
-	go expirationcheck(dbcontrol)
-	go clientexpirationcheck(dbcontrol)
-	go Removeunwantedrecord(dbcontrol)
+	//go expirationcheck(dbcontrol)
+	//go clientexpirationcheck(dbcontrol)
+	//go Removeunwantedrecord(dbcontrol)
 
-	service = grpc.NewServer()
-	rpc.RegisterModuleServer(service, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
-	rpc.RegisterExpirationpushServer(service, &api.Expirationpush{ClientList: clientexpirationchannel, Dbcontrol: dbcontrol, Logmar: logmar})
-	rpc.RegisterStorerecordServer(service, &api.Storerecord{Dbcontrol: dbcontrol, Configuration: servicesconfiguration, Logmar: logmar})
-	reflection.Register(service)
+	rpcservice = grpc.NewServer()
+	rpc.RegisterModuleServer(rpcservice, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
+	rpc.RegisterExpirationpushServer(rpcservice, &api.Expirationpush{ClientList: clientexpirationchannel, Dbcontrol: dbcontrol, Logmar: logmar})
+	rpc.RegisterStorerecordServer(rpcservice, &api.Storerecord{Dbcontrol: dbcontrol, Configuration: servicesconfiguration, Logmar: logmar})
+	reflection.Register(rpcservice)
+
+	// 多路复用的实现 HTTP1.1|HTTP2(GRPC)
+	var server = http.Server{
+		Handler: h2c.NewHandler(MixedHandler(rpcservice, SetupGinServer()), &http2.Server{}), //
+	}
 
 	fmt.Printf("Listening on :%s\r\n", servicesconfiguration.GRPC.Port)
-	if err = service.Serve(lis); err != nil {
+	if err = server.Serve(lis); err != nil {
 		panic(err)
 	}
+}
+
+func SetupGinServer() *gin.Engine {
+	r := gin.Default()
+	r.Use(func(ctx *gin.Context) {
+		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		ctx.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE, UPDATE")
+		ctx.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept, Authorization, X-CSRF-Token")
+		ctx.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		if ctx.Request.Method == "OPTIONS" {
+			ctx.AbortWithStatus(200)
+		} else {
+			ctx.Next()
+		}
+	})
+
+	r.LoadHTMLGlob(fmt.Sprintf("%s/web/*.html", readrunpath()))
+
+	r.GET("/index", func(ctx *gin.Context) {
+		ctx.HTML(http.StatusOK, "index.html", gin.H{"Title": "module balancing"})
+	})
+
+	r.StaticFS("/static", http.Dir(fmt.Sprintf("%s/web", readrunpath())))
+
+	var routes = route.GinRoutes{
+		Logwri:      nil,
+		DBConnect:   dbcontrol,
+		Serverstart: time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	return routes.InformationCollection(r)
+}
+
+func MixedHandler(grpcServer *grpc.Server, ginRouter *gin.Engine) http.Handler {
+	ginHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ginRouter.ServeHTTP(w, r)
+	})
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isGRPCRequest(r) {
+			fmt.Printf("[GRPC] %s\t%s\r\n", time.Now().Format(`2006/01/02 - 15:04:05`), strings.ToUpper(r.URL.Path))
+			grpcServer.ServeHTTP(w, r)
+			return
+		}
+
+		ginHandler.ServeHTTP(w, r)
+	})
+}
+
+func isGRPCRequest(r *http.Request) bool {
+	// 方法 1: 检查 Content-Type
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
+		return true
+	}
+
+	// 方法 2: 检查 HTTP/2 和路径特征
+	if r.ProtoMajor == 2 && strings.Contains(r.URL.Path, ".") {
+		return true
+	}
+
+	// 方法 3: 检查用户代理（可选）
+	if strings.Contains(r.Header.Get("User-Agent"), "grpc-") {
+		return true
+	}
+
+	return false
 }
 
 // Dumpmoduletodatabse 装载本地的Module文件, 每次程序启动时, 检查Module目录是否有新增文件

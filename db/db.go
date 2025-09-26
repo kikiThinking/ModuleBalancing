@@ -43,10 +43,10 @@ type Normal struct {
 
 type Client struct {
 	gorm.Model
-	AccumulateDownload int64          `gorm:"type:int;column:accumulate_download;default:0" json:"accumulate_download"`
+	AccumulateDownload int64          `gorm:"column:accumulate_download;default:0" json:"accumulate_download"`
 	Maxretentiondays   int64          `gorm:"column:maxretentiondays" json:"maxretentiondays"`
-	Status             string         `gorm:"type:varchar(10);column:status" json:"status"`
-	Group              string         `gorm:"type:varchar(255);column:group" json:"group"`
+	Status             string         `gorm:"type:varchar(10);column:status;default:offline" json:"status"`
+	Group              string         `gorm:"type:varchar(255);column:group;default:other" json:"group"`
 	Serveraddress      string         `gorm:"type:varchar(30);column:serveraddress;unique" json:"serveraddress"`
 	Reload             bool           `gorm:"column:reload" json:"reload"`
 	Store              []Clientmodule `gorm:"foreignkey:StoreID" json:"StoreID"`

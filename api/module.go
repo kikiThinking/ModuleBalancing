@@ -198,6 +198,19 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 	}
 
 	the.Logmar.GetLogger("Download").Info(fmt.Sprintf("filename(%s) download completed", filepath.Base(fp)))
+
+	var size int64
+	if err = the.Dbcontrol.Model(db.Client{}).Select("accumulate_download").Where(db.Client{Serveraddress: request.Serveraddress}).Find(&size).Error; err != nil {
+		the.Logmar.GetLogger("Download").Error(err.Error())
+		return nil
+	}
+
+	if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("accumulate_download", size+module.Size).Error; err != nil {
+		the.Logmar.GetLogger("Download").Error(err.Error())
+		return nil
+	}
+	the.Logmar.GetLogger("Download").Info(fmt.Sprintf("Client: %s add download size: %d", request.Serveraddress, module.Size))
+
 	return nil
 }
 
