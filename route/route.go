@@ -26,6 +26,7 @@ type GinRoutes struct {
 	DBConnect   *gorm.DB
 	Logwri      *logmanager.BusinessLogger
 	Serverstart string
+	//ClientUpdateControl *clientcontrol.ClientControl
 }
 
 type UnifiedResponse struct {
@@ -41,6 +42,27 @@ func (the *GinRoutes) InformationCollection(engine *gin.Engine) *gin.Engine {
 			Result: the.Serverstart,
 		})
 	})
+
+	//group.GET("/version", func(ctx *gin.Context) {
+	//	ctx.JSON(http.StatusOK, UnifiedResponse{
+	//		Status: "ok",
+	//		Result: the.ClientUpdateControl.MD5(),
+	//	})
+	//})
+	//
+	//group.GET("client", func(ctx *gin.Context) {
+	//	ctx.Header("Content-Type", "application/octet-stream")
+	//	ctx.Header("Content-Disposition", "attachment; filename="+url.QueryEscape("Modulebalancingclient.exe"))
+	//	ctx.Header("Content-Transfer-Encoding", "binary")
+	//	ctx.Header("Content-Length", strconv.Itoa(len(the.ClientUpdateControl.Data()))) // 关键：添加 Content-Length
+	//
+	//	// 添加缓存控制头部
+	//	ctx.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+	//	ctx.Header("Pragma", "no-cache")
+	//	ctx.Header("Expires", "0")
+	//
+	//	ctx.Data(http.StatusOK, "application/octet-stream", the.ClientUpdateControl.Data())
+	//})
 
 	group.GET("/clientonlinelist", func(ctx *gin.Context) {
 		var response = make([]map[string]interface{}, 0)
@@ -74,7 +96,7 @@ func (the *GinRoutes) InformationCollection(engine *gin.Engine) *gin.Engine {
 			)
 
 			switch device {
-			case "client":
+			case "clientcontrol":
 				if err := the.DBConnect.WithContext(ctx).Table("clientmodules as t1").
 					Joins("INNER JOIN modules as t2 ON t1.name = t2.name").
 					Where("t1.expiration >= ? AND t1.expiration < ? AND t1.deleted_at is null", startofday.Format("2006-01-02 15:04:05"), startofday.Add(time.Hour*24).Format("2006-01-02 15:04:05")).

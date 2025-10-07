@@ -11,6 +11,7 @@ package main
 
 import (
 	"ModuleBalancing/api"
+	"ModuleBalancing/clientcontrol"
 	"ModuleBalancing/db"
 	"ModuleBalancing/env"
 	rpc "ModuleBalancing/grpc"
@@ -48,6 +49,7 @@ var (
 	servicesconfiguration   *env.Configuration
 	logmar                  = logmanager.InitManager()
 	clientexpirationchannel = make(map[string]chan *rpc.ExpirationPushResponse, 100)
+	clientupdatecontrol     *clientcontrol.ClientControl
 )
 
 func init() {
@@ -188,6 +190,10 @@ func init() {
 	if err = dbcontrol.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci").AutoMigrate(db.AutoMigrate()...); err != nil {
 		panic(err)
 	}
+
+	if clientupdatecontrol, err = clientcontrol.New(readrunpath()); err != nil {
+		panic(err)
+	}
 }
 
 func main() {
@@ -211,7 +217,12 @@ func main() {
 	//go clientexpirationcheck(dbcontrol)
 	//go Removeunwantedrecord(dbcontrol)
 
+	// 监听客户端文件变化
+	go clientupdatecontrol.Monitor()
+
+	fmt.Println(clientupdatecontrol.MD5())
 	rpcservice = grpc.NewServer()
+	rpc.RegisterClientCheckServer(rpcservice, &api.ClientCheck{ClientUpdateControl: clientupdatecontrol})
 	rpc.RegisterModuleServer(rpcservice, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
 	rpc.RegisterExpirationpushServer(rpcservice, &api.Expirationpush{ClientList: clientexpirationchannel, Dbcontrol: dbcontrol, Logmar: logmar})
 	rpc.RegisterStorerecordServer(rpcservice, &api.Storerecord{Dbcontrol: dbcontrol, Configuration: servicesconfiguration, Logmar: logmar})
@@ -502,12 +513,12 @@ func clientexpirationcheck(ctx *gorm.DB) {
 		var clientlist = make([]db.Client, 0)
 
 		if err = ctx.Preload(`Store`).Find(&clientlist).Error; err != nil {
-			logmar.GetLogger("Expirationforclient").Error("Failed to query client record")
+			logmar.GetLogger("Expirationforclient").Error("Failed to query clientcontrol record")
 			continue
 		}
 
 		if len(clientlist) == 0 {
-			logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("There is no client connention recoed!"))
+			logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("There is no clientcontrol connention recoed!"))
 		}
 
 		// 这里是客户端变更过期时间后更新已知Module过期时间的关键代码
@@ -524,19 +535,19 @@ func clientexpirationcheck(ctx *gorm.DB) {
 				}
 
 				if err = ctx.Model(db.Client{}).Where(db.Client{Serveraddress: client.Serveraddress}).Update(`reload`, true).Error; err != nil {
-					logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Failed to update client reload status(%s)", err.Error()))
+					logmar.GetLogger("Expirationforclient").Error(fmt.Sprintf("Failed to update clientcontrol reload status(%s)", err.Error()))
 				}
 			}
 		}
 
 		if updated {
 			if err = ctx.Preload(`Store`).Find(&clientlist).Error; err != nil {
-				logmar.GetLogger("Expirationforclient").Error("Failed to query client record")
+				logmar.GetLogger("Expirationforclient").Error("Failed to query clientcontrol record")
 				continue
 			}
 		}
 
-		logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Check client(%v)", len(clientlist)))
+		logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Check clientcontrol(%v)", len(clientlist)))
 		for index, item := range clientlist {
 			if _, ok := clientexpirationchannel[item.Serveraddress]; !ok {
 				logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("(%v)Client address (%s) is offline, skip checked", index, item.Serveraddress))

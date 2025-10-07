@@ -66,7 +66,7 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 			return err
 		}
 
-		log.Printf("Create new client ----> %s\r\n", request.Serveraddress)
+		log.Printf("Create new clientcontrol ----> %s\r\n", request.Serveraddress)
 	}
 
 	log.Printf("GRPC Client connect ----> %s\r\n", request.Serveraddress)
@@ -118,9 +118,9 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 			}
 
 			if err := stream.Send(message); err != nil {
-				the.Logmar.GetLogger("Expirationforclient").Error("failed to send expiration message to client: ", err.Error())
+				the.Logmar.GetLogger("Expirationforclient").Error("failed to send expiration message to clientcontrol: ", err.Error())
 				the.BreakClient(request.Serveraddress)
-				log.Printf("Failed to send message to client %s: %v", request.Serveraddress, err)
+				log.Printf("Failed to send message to clientcontrol %s: %v", request.Serveraddress, err)
 				return err
 			}
 
