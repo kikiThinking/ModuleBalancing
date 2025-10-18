@@ -76,28 +76,38 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 	if exist {
 		// 数据库中存在, 但是本地文件不存在, 尝试去Backup server下载
 		if _, err = os.Stat(fp); os.IsNotExist(err) {
-			the.Logmar.GetLogger("Download").Error("The file does not exist locally")
-			ctx, cencel := context.WithCancel(context.Background())
+
+			the.Logmar.GetLogger("Download").Info("The file does not exist")
+
+			ctx, downloadcancel := context.WithCancel(context.Background())
+			defer downloadcancel()
+
 			if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", the.Configuration.Backup.Host, the.Configuration.Backup.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
-				cencel()
+				the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
 				return err
 			}
-			cencel()
 		}
+
 	} else {
-		the.Logmar.GetLogger("Download").Error("Not recorded in the database")
 		if _, err = os.Stat(fp); os.IsNotExist(err) {
-			the.Logmar.GetLogger("Download").Error("The file does not exist locally")
-			ctx, cencel := context.WithCancel(context.Background())
+
+			the.Logmar.GetLogger("Download").Info("Database records and files do not exist")
+
+			ctx, downloadcancel := context.WithCancel(context.Background())
+			defer downloadcancel()
+
 			if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", the.Configuration.Backup.Host, the.Configuration.Backup.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
-				cencel()
+				the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
 				return err
 			}
-			cencel()
-			// 数据库中没有记录, 本地文件也不存在, 尝试去Backup server下载
+
 		} else {
-			var crc uint64
-			var size int64
+			the.Logmar.GetLogger("Download").Info("The database record does not exist but the file exists")
+			var (
+				crc  uint64
+				size int64
+			)
+
 			if crc, size, err = env.CRC64(fp, 128*1024*1024, 8); err != nil {
 				return err
 			}
@@ -111,14 +121,12 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 			}).Error; err != nil {
 				return fmt.Errorf("failed to database error --> %s", err.Error()) // 其他error
 			}
-			// 数据库中不存在, 但是本地存在文件, 解析本地文件写入数据库
 		}
 	}
 
 	// 只要触发从backup server下载和本地解析都会触发
 	var module = new(db.Module)
 	if err = the.Dbcontrol.Model(db.Module{}).Where(db.Module{Name: request.Filename}).First(module).Error; err != nil {
-		fmt.Println("Not found")
 		return fmt.Errorf("failed to database error --> %s", err.Error()) // 其他error
 	}
 
@@ -199,17 +207,19 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 
 	the.Logmar.GetLogger("Download").Info(fmt.Sprintf("filename(%s) download completed", filepath.Base(fp)))
 
-	var size int64
-	if err = the.Dbcontrol.Model(db.Client{}).Select("accumulate_download").Where(db.Client{Serveraddress: request.Serveraddress}).Find(&size).Error; err != nil {
-		the.Logmar.GetLogger("Download").Error(err.Error())
-		return nil
-	}
+	if request.Serveraddress != "Debug" {
+		var size int64
+		if err = the.Dbcontrol.Model(db.Client{}).Select("accumulate_download").Where(db.Client{Serveraddress: request.Serveraddress}).Find(&size).Error; err != nil {
+			the.Logmar.GetLogger("Download").Error(err.Error())
+			return nil
+		}
 
-	if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("accumulate_download", size+module.Size).Error; err != nil {
-		the.Logmar.GetLogger("Download").Error(err.Error())
-		return nil
+		if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("accumulate_download", size+module.Size).Error; err != nil {
+			the.Logmar.GetLogger("Download").Error(err.Error())
+			return nil
+		}
+		the.Logmar.GetLogger("Download").Info(fmt.Sprintf("Client: %s add download size: %d", request.Serveraddress, module.Size))
 	}
-	the.Logmar.GetLogger("Download").Info(fmt.Sprintf("Client: %s add download size: %d", request.Serveraddress, module.Size))
 
 	return nil
 }

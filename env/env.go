@@ -243,9 +243,9 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 			// from backup
 			backctx, cencel := context.WithCancel(context.Background())
 			if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", cf.Backup.Host, cf.Backup.Port), cf.Setting.Common, value, cf.Setting.Expiration, logwrite); err != nil {
+				logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
 				cencel()
 				analyzingerror = append(analyzingerror, value)
-				logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
 				continue
 			}
 			cencel()
@@ -584,6 +584,8 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		return errors.New("failed to did not receive the headers passed by the server")
 	}
 
+	fmt.Println(headers)
+
 	var (
 		crc   = headers.Get("crc64")
 		size  int64
@@ -645,6 +647,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	}
 
 	fmt.Printf("\r\nDownload (%s)\t----> finish\r\n\r\n", strings.Join([]string{fp, fn}, `\`))
+	logmar.Info(fmt.Sprintf("Download (%s)\t----> finish", strings.Join([]string{fp, fn}, `\`)))
 
 	_ = f.Close()
 
@@ -671,7 +674,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	}
 
 	if !strings.EqualFold(crc[0], strconv.FormatUint(fcrc, 10)) {
-		return errors.New("the crc64 values are inconsistent, and the file may have been damaged during the download process")
+		return fmt.Errorf("Backup(%s) Download(%s) the crc64 values are inconsistent, and the file may have been damaged during the download process ", crc[0], strconv.FormatUint(fcrc, 10))
 	}
 
 	var module = db.Module{
@@ -682,20 +685,13 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expirationday)),
 	}
 
-	//if err = dbcontrol.Clauses(
-	//	clause.OnConflict{
-	//		Columns:   []clause.Column{{Name: "name"}},
-	//		DoUpdates: clause.AssignmentColumns([]string{"crc64", "size", "lastuse", "expiration", "deleted_at"})},
-	//).Create(&module).Error; err != nil {
-	//	return err
-	//}
-
 	var isexistrecord bool
 	if err = dbcontrol.Unscoped().
-		Model(db.Module{}).Select(`COUNT(*) > 0`).
+		Model(db.Module{}).
+		Select(`COUNT(*) > 0`).
 		Where(db.Module{Name: module.Name}).
 		Scan(&isexistrecord).Error; err != nil {
-		return err
+		return fmt.Errorf("failed to check exist (%s): %s", module.Name, err.Error())
 	}
 
 	if isexistrecord {
@@ -710,17 +706,16 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 				"expiration": module.Expiration,
 				"deleted_at": nil,
 			}).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to unscope module %s: %w", module.Name, err)
 		}
 	} else {
 		if err = dbcontrol.Model(db.Module{}).Create(&module).Error; err != nil {
-			return err
+			return fmt.Errorf("failed to create module %s: %w", module.Name, err)
 		}
 	}
 
 	if err = os.Rename(tempfp, dstfp); err != nil {
-		logmar.Error(fmt.Sprintf("Failed to rename file(%s --> %s)", tempfp, dstfp))
-		return err
+		return fmt.Errorf("failed to rename file(%s --> %s)", tempfp, dstfp)
 	}
 
 	logmar.Info(fmt.Sprintf("Module download completed  --> %-20s  CRC: %-20v  Size: %-10v  Lastuse: %-20s  Expiration: %-20s",

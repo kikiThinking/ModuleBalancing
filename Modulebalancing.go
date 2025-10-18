@@ -205,22 +205,21 @@ func main() {
 
 	go hotloadding(strings.Join([]string{readrunpath(), "conf"}, `\`))
 	// 启动时装载本地没有记录的Module
-	//if err = Dumpmoduletodatabse(dbcontrol); err != nil {
-	//	panic(err)
-	//}
+	if err = Dumpmoduletodatabse(dbcontrol); err != nil {
+		panic(err)
+	}
 
 	// 实时监听Module目录, 当Module目录新增Module时
-	go env.Monitornewmodule(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
+	go env.MonitornewmoduleBack(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
 
 	// 过期Module备份和删除
-	//go expirationcheck(dbcontrol)
-	//go clientexpirationcheck(dbcontrol)
-	//go Removeunwantedrecord(dbcontrol)
+	go expirationcheck(dbcontrol)
+	go clientexpirationcheck(dbcontrol)
+	go Removeunwantedrecord(dbcontrol)
 
-	// 监听客户端文件变化
+	// 监听客户端升级
 	go clientupdatecontrol.Monitor()
 
-	fmt.Println(clientupdatecontrol.MD5())
 	rpcservice = grpc.NewServer()
 	rpc.RegisterClientCheckServer(rpcservice, &api.ClientCheck{ClientUpdateControl: clientupdatecontrol})
 	rpc.RegisterModuleServer(rpcservice, &api.ModuleBalancing{Configuration: servicesconfiguration, Dbcontrol: dbcontrol, Logmar: logmar})
