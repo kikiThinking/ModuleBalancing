@@ -108,7 +108,8 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 				size int64
 			)
 
-			if crc, size, err = env.CRC64(fp, 128*1024*1024, 8); err != nil {
+			crc, size, err = env.CRC64(fp, 128*1024*1024, 8)
+			if err != nil {
 				return err
 			}
 
@@ -250,6 +251,36 @@ func (the *ModuleBalancing) Analyzing(_ context.Context, request *rpc.AnalyzingR
 	}
 
 	return response, nil
+}
+
+func (the *ModuleBalancing) ModuleReload(_ context.Context, request *rpc.ModuleReloadRequest) (*rpc.EmptyResponse, error) {
+	var module = new(db.Module)
+	if err = the.Dbcontrol.Model(module).Where(db.Module{Name: request.Filename}).Find(module).Error; err != nil {
+		return &rpc.EmptyResponse{}, err
+	}
+
+	if strings.EqualFold(request.Crc, strconv.FormatUint(module.CRC64, 10)) {
+		return &rpc.EmptyResponse{}, nil
+	}
+
+	var (
+		crc  uint64
+		size int64
+	)
+
+	crc, size, err = env.CRC64(strings.Join([]string{the.Configuration.Setting.Common, request.Filename}, `\`), 128*1024*1024, 8)
+	if err != nil {
+		return &rpc.EmptyResponse{}, err
+	}
+
+	if err = the.Dbcontrol.Model(module).Where(db.Module{Name: request.Filename}).Updates(map[string]interface{}{
+		"crc":  crc,
+		"size": size,
+	}).Error; err != nil {
+		return &rpc.EmptyResponse{}, err
+	}
+
+	return &rpc.EmptyResponse{}, nil
 }
 
 // BreakClient 函数关闭客户端的连接

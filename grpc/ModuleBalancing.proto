@@ -2,28 +2,44 @@ syntax = "proto3";
 
 option go_package = "/grpc";
 
+
 package ModuleBalancing;
 
 service Module {
   rpc Upload (stream UploadRequest) returns (UploadResponse);
-  rpc Push(ModuleDownloadRequest) returns (stream ModulePushResponse);
-  
   rpc Analyzing(analyzingRequest) returns (analyzingResponse);
   rpc IntegrityVerification(IntegrityVerificationRequest) returns (IntegrityVerificationResponse);
+  rpc Push(ModuleDownloadRequest) returns (stream ModulePushResponse);
+  rpc ModuleReload(ModuleReloadRequest) returns (EmptyResponse);
 }
+
 
 service Expirationpush {
   rpc Expiration(ExpirationPushRequest) returns (stream ExpirationPushResponse);
 }
 
+//service ExpirationNotice {
+//  rpc Notice(stream ExpirationServices) returns (stream ExpirationClient);
+//}
+
 service Storerecord {
   rpc Updatestorerecord(stream StorerecordRequest) returns (StorerecordResponse);
 }
+
 
 service ClientCheck {
   rpc MD5(MD5Request) returns (MD5Response);
   rpc Data(DataRequest) returns (stream DataResponse);
 }
+
+
+message ModuleReloadRequest {
+  string filename = 1;
+  string crc = 2;
+  string serverip = 3;
+}
+
+message EmptyResponse {}
 
 
 message MD5Request {}
@@ -33,8 +49,8 @@ message MD5Response {
 }
 
 message DataRequest {
-    int64 offset = 1;
-    string serveraddress = 2;
+  int64 offset = 1;
+  string serveraddress = 2;
 }
 
 message DataResponse {
