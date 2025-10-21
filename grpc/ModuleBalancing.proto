@@ -35,8 +35,7 @@ service ClientCheck {
 
 message ModuleReloadRequest {
   string filename = 1;
-  string crc = 2;
-  string serverip = 3;
+  string serverip = 2;
 }
 
 message EmptyResponse {}

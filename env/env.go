@@ -537,6 +537,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	var (
 		stream grpc.ServerStreamingClient[rpc.ModulePushResponse]
 		conn   *grpc.ClientConn
+		reload = false
 	)
 
 	// dstfp 目标文件名
@@ -566,6 +567,7 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 		}
 	}
 
+RELOAD:
 	if stream, err = dlclient.Push(ctx, &rpc.ModuleDownloadRequest{Filename: fn, Offset: 0, Serveraddress: "1111"}); err != nil {
 		return err
 	}
@@ -583,8 +585,6 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	if len(headers) == 0 {
 		return errors.New("failed to did not receive the headers passed by the server")
 	}
-
-	fmt.Println(headers)
 
 	var (
 		crc   = headers.Get("crc64")
@@ -669,11 +669,19 @@ func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddre
 	}
 
 	// 判断下载的文件大小与服务端提供的是否一致
-	if size != filesize {
-		return errors.New("files are different sizes")
-	}
+	if size != filesize || !strings.EqualFold(crc[0], strconv.FormatUint(fcrc, 10)) {
+		if !reload {
+			logmar.Info("File verification failed, request server to reload")
+			reload = true
+			ctxforreload, clsforreload := context.WithCancel(context.Background())
+			defer clsforreload()
+			if err = Modulereload(ctxforreload, conn, "1111", filepath.Base(fn)); err != nil {
+				return fmt.Errorf("failed to reload module: %s", err.Error())
+			}
 
-	if !strings.EqualFold(crc[0], strconv.FormatUint(fcrc, 10)) {
+			goto RELOAD
+		}
+
 		return fmt.Errorf("Backup(%s) Download(%s) the crc64 values are inconsistent, and the file may have been damaged during the download process ", crc[0], strconv.FormatUint(fcrc, 10))
 	}
 
@@ -842,6 +850,13 @@ func Changefiletime(fp string, munix, cunix int64) error {
 	Rtime := ParseWindowsTime(time.Now())
 	defer syscall.CloseHandle(handle)
 	return syscall.SetFileTime(handle, &Ctime, &Rtime, &Mtime)
+}
+
+func Modulereload(ctx context.Context, conn *grpc.ClientConn, serverip, filename string) error {
+	if _, err = rpc.NewModuleClient(conn).ModuleReload(ctx, &rpc.ModuleReloadRequest{Filename: filename, Serverip: serverip}); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (the *Processprintstruct) Initialization() {

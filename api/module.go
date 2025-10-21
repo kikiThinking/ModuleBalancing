@@ -254,13 +254,12 @@ func (the *ModuleBalancing) Analyzing(_ context.Context, request *rpc.AnalyzingR
 }
 
 func (the *ModuleBalancing) ModuleReload(_ context.Context, request *rpc.ModuleReloadRequest) (*rpc.EmptyResponse, error) {
+	the.Logmar.GetLogger("Reload").Info(fmt.Sprintf("reload filename(%s)", request.Filename))
+
 	var module = new(db.Module)
 	if err = the.Dbcontrol.Model(module).Where(db.Module{Name: request.Filename}).Find(module).Error; err != nil {
+		the.Logmar.GetLogger("Reload").Error(fmt.Sprintf("Failed to reload file %s", err.Error()))
 		return &rpc.EmptyResponse{}, err
-	}
-
-	if strings.EqualFold(request.Crc, strconv.FormatUint(module.CRC64, 10)) {
-		return &rpc.EmptyResponse{}, nil
 	}
 
 	var (
@@ -270,13 +269,19 @@ func (the *ModuleBalancing) ModuleReload(_ context.Context, request *rpc.ModuleR
 
 	crc, size, err = env.CRC64(strings.Join([]string{the.Configuration.Setting.Common, request.Filename}, `\`), 128*1024*1024, 8)
 	if err != nil {
+		the.Logmar.GetLogger("Reload").Error(fmt.Sprintf("Failed to calculate CRC64 %s", err.Error()))
 		return &rpc.EmptyResponse{}, err
 	}
 
-	if err = the.Dbcontrol.Model(module).Where(db.Module{Name: request.Filename}).Updates(map[string]interface{}{
-		"crc":  crc,
-		"size": size,
-	}).Error; err != nil {
+	the.Logmar.GetLogger("Reload").Info(fmt.Sprintf("File(%s) CRC64: (%s)  ----> (%s)", request.Filename, strconv.FormatUint(module.CRC64, 10), strconv.FormatUint(crc, 10)))
+
+	if err = the.Dbcontrol.Model(module).
+		Where(db.Module{Name: request.Filename}).
+		Updates(map[string]interface{}{
+			"crc64": crc,
+			"size":  size,
+		}).Error; err != nil {
+		the.Logmar.GetLogger("Reload").Error(fmt.Sprintf("Failed to update database %s", err.Error()))
 		return &rpc.EmptyResponse{}, err
 	}
 

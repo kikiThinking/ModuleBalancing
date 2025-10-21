@@ -24,8 +24,7 @@ const (
 type ModuleReloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
-	Crc           string                 `protobuf:"bytes,2,opt,name=crc,proto3" json:"crc,omitempty"`
-	Serverip      string                 `protobuf:"bytes,3,opt,name=serverip,proto3" json:"serverip,omitempty"`
+	Serverip      string                 `protobuf:"bytes,2,opt,name=serverip,proto3" json:"serverip,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -63,13 +62,6 @@ func (*ModuleReloadRequest) Descriptor() ([]byte, []int) {
 func (x *ModuleReloadRequest) GetFilename() string {
 	if x != nil {
 		return x.Filename
-	}
-	return ""
-}
-
-func (x *ModuleReloadRequest) GetCrc() string {
-	if x != nil {
-		return x.Crc
 	}
 	return ""
 }
@@ -1059,11 +1051,10 @@ var File_grpc_ModuleBalancing_proto protoreflect.FileDescriptor
 
 const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\n" +
-	"\x1agrpc/ModuleBalancing.proto\x12\x0fModuleBalancing\"_\n" +
+	"\x1agrpc/ModuleBalancing.proto\x12\x0fModuleBalancing\"M\n" +
 	"\x13ModuleReloadRequest\x12\x1a\n" +
-	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x10\n" +
-	"\x03crc\x18\x02 \x01(\tR\x03crc\x12\x1a\n" +
-	"\bserverip\x18\x03 \x01(\tR\bserverip\"\x0f\n" +
+	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x1a\n" +
+	"\bserverip\x18\x02 \x01(\tR\bserverip\"\x0f\n" +
 	"\rEmptyResponse\"\f\n" +
 	"\n" +
 	"MD5Request\"\x1f\n" +

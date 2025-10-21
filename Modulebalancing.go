@@ -156,6 +156,14 @@ func init() {
 		MinLevel:     logmanager.INFO,
 	})
 
+	logmar.RegisterBusiness(logmanager.LoggerConfig{
+		BusinessName: "Reload",
+		LogDir:       fmt.Sprintf(strings.Join([]string{readrunpath(), "logs", "reload"}, `\`)),
+		MaxSize:      1,
+		MaxBackups:   90,
+		MinLevel:     logmanager.INFO,
+	})
+
 	servicesconfiguration = new(env.Configuration)
 	if err = yaml.Unmarshal(f, servicesconfiguration); err != nil {
 		panic(err)
