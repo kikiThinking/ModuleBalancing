@@ -180,7 +180,7 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 		}
 	}
 
-	var buffer = make([]byte, 1*1024*1024) // 1MB
+	var buffer = make([]byte, env.GetOptimalBufferSize(finformation.Size())) // 1MB
 
 	for {
 		number, err := f.Read(buffer)

@@ -859,6 +859,32 @@ func Modulereload(ctx context.Context, conn *grpc.ClientConn, serverip, filename
 	return nil
 }
 
+// GetOptimalBufferSize 动态调整缓冲区大小
+func GetOptimalBufferSize(fileSize int64) int {
+	switch {
+	case fileSize <= 0:
+		return 4 * 1024 // 默认 4KB，处理异常情况
+
+	case fileSize < 64*1024: // 小于 64KB
+		return int(fileSize) // 小文件一次性读取
+
+	case fileSize < 512*1024: // 小于 512KB
+		return 64 * 1024 // 64KB 块
+
+	case fileSize < 5*1024*1024: // 小于 5MB
+		return 128 * 1024 // 128KB 块
+
+	case fileSize < 20*1024*1024: // 小于 20MB
+		return 512 * 1024 // 512KB 块
+
+	case fileSize < 100*1024*1024: // 小于 100MB
+		return 1 * 1024 * 1024 // 1MB 块
+
+	default: // 100MB 及以上
+		return 2 * 1024 * 1024 // 2MB 块
+	}
+}
+
 func (the *Processprintstruct) Initialization() {
 	const (
 		KB = 1 << 10 // 1024

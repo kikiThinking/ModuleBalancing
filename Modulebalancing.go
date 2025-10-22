@@ -284,7 +284,10 @@ func MixedHandler(grpcServer *grpc.Server, ginRouter *gin.Engine) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isGRPCRequest(r) {
-			fmt.Printf("[GRPC] %s\t%s\r\n", time.Now().Format(`2006/01/02 - 15:04:05`), strings.ToUpper(r.URL.Path))
+			// Check Client MD5的请求不再打印
+			if !strings.Contains(strings.ToUpper(r.URL.Path), "CLIENTCHECK/MD5") {
+				fmt.Printf("[GRPC] %s\t%s\r\n", time.Now().Format(`2006/01/02 - 15:04:05`), strings.ToUpper(r.URL.Path))
+			}
 			grpcServer.ServeHTTP(w, r)
 			return
 		}
