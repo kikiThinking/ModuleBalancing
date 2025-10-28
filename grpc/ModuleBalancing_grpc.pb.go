@@ -24,6 +24,7 @@ const (
 	Module_IntegrityVerification_FullMethodName = "/ModuleBalancing.Module/IntegrityVerification"
 	Module_Push_FullMethodName                  = "/ModuleBalancing.Module/Push"
 	Module_ModuleReload_FullMethodName          = "/ModuleBalancing.Module/ModuleReload"
+	Module_AllowStorage_FullMethodName          = "/ModuleBalancing.Module/AllowStorage"
 )
 
 // ModuleClient is the client API for Module service.
@@ -35,6 +36,7 @@ type ModuleClient interface {
 	IntegrityVerification(ctx context.Context, in *IntegrityVerificationRequest, opts ...grpc.CallOption) (*IntegrityVerificationResponse, error)
 	Push(ctx context.Context, in *ModuleDownloadRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[ModulePushResponse], error)
 	ModuleReload(ctx context.Context, in *ModuleReloadRequest, opts ...grpc.CallOption) (*EmptyResponse, error)
+	AllowStorage(ctx context.Context, in *AllowStorageRequest, opts ...grpc.CallOption) (*AllowStorageResponse, error)
 }
 
 type moduleClient struct {
@@ -107,6 +109,16 @@ func (c *moduleClient) ModuleReload(ctx context.Context, in *ModuleReloadRequest
 	return out, nil
 }
 
+func (c *moduleClient) AllowStorage(ctx context.Context, in *AllowStorageRequest, opts ...grpc.CallOption) (*AllowStorageResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AllowStorageResponse)
+	err := c.cc.Invoke(ctx, Module_AllowStorage_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ModuleServer is the server API for Module service.
 // All implementations must embed UnimplementedModuleServer
 // for forward compatibility.
@@ -116,6 +128,7 @@ type ModuleServer interface {
 	IntegrityVerification(context.Context, *IntegrityVerificationRequest) (*IntegrityVerificationResponse, error)
 	Push(*ModuleDownloadRequest, grpc.ServerStreamingServer[ModulePushResponse]) error
 	ModuleReload(context.Context, *ModuleReloadRequest) (*EmptyResponse, error)
+	AllowStorage(context.Context, *AllowStorageRequest) (*AllowStorageResponse, error)
 	mustEmbedUnimplementedModuleServer()
 }
 
@@ -140,6 +153,9 @@ func (UnimplementedModuleServer) Push(*ModuleDownloadRequest, grpc.ServerStreami
 }
 func (UnimplementedModuleServer) ModuleReload(context.Context, *ModuleReloadRequest) (*EmptyResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ModuleReload not implemented")
+}
+func (UnimplementedModuleServer) AllowStorage(context.Context, *AllowStorageRequest) (*AllowStorageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AllowStorage not implemented")
 }
 func (UnimplementedModuleServer) mustEmbedUnimplementedModuleServer() {}
 func (UnimplementedModuleServer) testEmbeddedByValue()                {}
@@ -234,6 +250,24 @@ func _Module_ModuleReload_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Module_AllowStorage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AllowStorageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ModuleServer).AllowStorage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: Module_AllowStorage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ModuleServer).AllowStorage(ctx, req.(*AllowStorageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // Module_ServiceDesc is the grpc.ServiceDesc for Module service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -252,6 +286,10 @@ var Module_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ModuleReload",
 			Handler:    _Module_ModuleReload_Handler,
+		},
+		{
+			MethodName: "AllowStorage",
+			Handler:    _Module_AllowStorage_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

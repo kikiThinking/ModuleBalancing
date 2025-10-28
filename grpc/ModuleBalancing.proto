@@ -11,6 +11,7 @@ service Module {
   rpc IntegrityVerification(IntegrityVerificationRequest) returns (IntegrityVerificationResponse);
   rpc Push(ModuleDownloadRequest) returns (stream ModulePushResponse);
   rpc ModuleReload(ModuleReloadRequest) returns (EmptyResponse);
+  rpc AllowStorage(AllowStorageRequest) returns (AllowStorageResponse);
 }
 
 
@@ -33,6 +34,14 @@ service ClientCheck {
 }
 
 
+message AllowStorageRequest {
+  int64 size = 1;
+}
+
+message AllowStorageResponse {
+  bool allow = 1;
+}
+
 message ModuleReloadRequest {
   string filename = 1;
   string serverip = 2;
@@ -40,6 +49,7 @@ message ModuleReloadRequest {
 
 message EmptyResponse {}
 
+message EmptyRequest {}
 
 message MD5Request {}
 

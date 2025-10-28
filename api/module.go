@@ -79,12 +79,23 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 
 			the.Logmar.GetLogger("Download").Info("The file does not exist")
 
-			ctx, downloadcancel := context.WithCancel(context.Background())
-			defer downloadcancel()
+			var isok = false
+			for _, backupserver := range the.Configuration.Backup {
+				ctx, downloadcancel := context.WithCancel(context.Background())
 
-			if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", the.Configuration.Backup.Host, the.Configuration.Backup.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
-				the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
-				return err
+				if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
+					the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
+					downloadcancel()
+					continue
+				}
+
+				isok = true
+				downloadcancel()
+				break
+			}
+
+			if !isok {
+				return status.Error(codes.NotFound, "The file does not exist")
 			}
 		}
 
@@ -93,12 +104,23 @@ func (the *ModuleBalancing) Push(request *rpc.ModuleDownloadRequest, stream rpc.
 
 			the.Logmar.GetLogger("Download").Info("Database records and files do not exist")
 
-			ctx, downloadcancel := context.WithCancel(context.Background())
-			defer downloadcancel()
+			var isok = false
+			for _, backupserver := range the.Configuration.Backup {
+				ctx, downloadcancel := context.WithCancel(context.Background())
 
-			if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", the.Configuration.Backup.Host, the.Configuration.Backup.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
-				the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
-				return err
+				if err = env.Downloadmodulefromback(the.Dbcontrol, ctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), filepath.Dir(fp), request.Filename, the.Configuration.Setting.Expiration, the.Logmar.GetLogger("Download")); err != nil { // Backup server下载
+					the.Logmar.GetLogger("Download").Error(fmt.Sprintf("Download failed %s", err.Error()))
+					downloadcancel()
+					continue
+				}
+
+				isok = true
+				downloadcancel()
+				break
+			}
+
+			if !isok {
+				return status.Error(codes.NotFound, "The file does not exist")
 			}
 
 		} else {

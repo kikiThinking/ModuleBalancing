@@ -466,22 +466,54 @@ func expirationcheck(ctx *gorm.DB) {
 		logmar.GetLogger("Expiration").Info(fmt.Sprintf("Expiration Module(%v)", len(expirationlist)))
 		for index, item := range expirationlist {
 			logmar.GetLogger("Expiration").Info(fmt.Sprintf("(%v)Backup Module files ----> %s", index+1, item.Name))
-			backcontext, cancel := context.WithCancel(context.Background())
 
-			if err = env.Uploadtoback(
-				backcontext,
-				fmt.Sprintf("%s:%s", servicesconfiguration.Backup.Host, servicesconfiguration.Backup.Port),
-				servicesconfiguration.Setting.Common,
-				item,
-				logmar.GetLogger("Expiration"),
-			); err != nil {
-				cancel()
-				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup Module (%s)", err.Error()))
-				continue
+			var (
+				isok      = false
+				backuperr error
+			)
+			for _, backupserver := range servicesconfiguration.Backup {
+				isok, backuperr = func() (bool, error) {
+					backcontext, cancel := context.WithCancel(context.Background())
+					defer cancel()
+
+					// 询问Backup server 是否可以存放
+					if allow := env.AllowStorage(
+						backcontext,
+						fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port),
+						item.Size,
+						logmar.GetLogger("Expiration"),
+					); !allow {
+						return false, fmt.Errorf("server(%s) does not allow backups", backupserver.Host)
+					}
+
+					// 存放Module到Backup
+					if err = env.Uploadtoback(
+						backcontext,
+						fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port),
+						servicesconfiguration.Setting.Common,
+						item,
+						logmar.GetLogger("Expiration"),
+					); err != nil {
+						logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup Module (%s)", err.Error()))
+						return false, err
+					}
+
+					logmar.GetLogger("Expiration").Info(fmt.Sprintf("Backup Module (%s) is successfully", item.Name))
+					return true, nil
+				}()
+
+				if isok {
+					break
+				}
+
+				if backuperr != nil {
+					logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup[%s] Module (%s)", backupserver.Host, err.Error()))
+				}
 			}
 
-			logmar.GetLogger("Expiration").Info(fmt.Sprintf("Backup Module (%s) is successfully", item.Name))
-			cancel()
+			if !isok {
+				continue
+			}
 
 			if err = ctx.Where(`id =?`, item.ID).Delete(&db.Module{}).Error; err != nil {
 				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to deleted database record(%s)", err.Error()))

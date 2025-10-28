@@ -37,5 +37,11 @@ GRPC:
   Port: 9998
 
 Backup:
-  Host: localhost
-  Port: 9999
+  - Host: localhost
+    Port: 9999
+
+  - Host: 10.60.230.12
+    Port: 9999
+
+  - Host: 10.230.230.44
+    Port: 9999

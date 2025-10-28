@@ -21,6 +21,94 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type AllowStorageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Size          int64                  `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AllowStorageRequest) Reset() {
+	*x = AllowStorageRequest{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AllowStorageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AllowStorageRequest) ProtoMessage() {}
+
+func (x *AllowStorageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AllowStorageRequest.ProtoReflect.Descriptor instead.
+func (*AllowStorageRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *AllowStorageRequest) GetSize() int64 {
+	if x != nil {
+		return x.Size
+	}
+	return 0
+}
+
+type AllowStorageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Allow         bool                   `protobuf:"varint,1,opt,name=allow,proto3" json:"allow,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AllowStorageResponse) Reset() {
+	*x = AllowStorageResponse{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AllowStorageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AllowStorageResponse) ProtoMessage() {}
+
+func (x *AllowStorageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AllowStorageResponse.ProtoReflect.Descriptor instead.
+func (*AllowStorageResponse) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *AllowStorageResponse) GetAllow() bool {
+	if x != nil {
+		return x.Allow
+	}
+	return false
+}
+
 type ModuleReloadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Filename      string                 `protobuf:"bytes,1,opt,name=filename,proto3" json:"filename,omitempty"`
@@ -31,7 +119,7 @@ type ModuleReloadRequest struct {
 
 func (x *ModuleReloadRequest) Reset() {
 	*x = ModuleReloadRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[0]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -43,7 +131,7 @@ func (x *ModuleReloadRequest) String() string {
 func (*ModuleReloadRequest) ProtoMessage() {}
 
 func (x *ModuleReloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[0]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -56,7 +144,7 @@ func (x *ModuleReloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleReloadRequest.ProtoReflect.Descriptor instead.
 func (*ModuleReloadRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{0}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *ModuleReloadRequest) GetFilename() string {
@@ -81,7 +169,7 @@ type EmptyResponse struct {
 
 func (x *EmptyResponse) Reset() {
 	*x = EmptyResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[1]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -93,7 +181,7 @@ func (x *EmptyResponse) String() string {
 func (*EmptyResponse) ProtoMessage() {}
 
 func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[1]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -106,7 +194,43 @@ func (x *EmptyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EmptyResponse.ProtoReflect.Descriptor instead.
 func (*EmptyResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{1}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{3}
+}
+
+type EmptyRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EmptyRequest) Reset() {
+	*x = EmptyRequest{}
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EmptyRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EmptyRequest) ProtoMessage() {}
+
+func (x *EmptyRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EmptyRequest.ProtoReflect.Descriptor instead.
+func (*EmptyRequest) Descriptor() ([]byte, []int) {
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{4}
 }
 
 type MD5Request struct {
@@ -117,7 +241,7 @@ type MD5Request struct {
 
 func (x *MD5Request) Reset() {
 	*x = MD5Request{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -129,7 +253,7 @@ func (x *MD5Request) String() string {
 func (*MD5Request) ProtoMessage() {}
 
 func (x *MD5Request) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[2]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -142,7 +266,7 @@ func (x *MD5Request) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MD5Request.ProtoReflect.Descriptor instead.
 func (*MD5Request) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{2}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{5}
 }
 
 type MD5Response struct {
@@ -154,7 +278,7 @@ type MD5Response struct {
 
 func (x *MD5Response) Reset() {
 	*x = MD5Response{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -166,7 +290,7 @@ func (x *MD5Response) String() string {
 func (*MD5Response) ProtoMessage() {}
 
 func (x *MD5Response) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[3]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -179,7 +303,7 @@ func (x *MD5Response) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MD5Response.ProtoReflect.Descriptor instead.
 func (*MD5Response) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{3}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MD5Response) GetMD5() string {
@@ -199,7 +323,7 @@ type DataRequest struct {
 
 func (x *DataRequest) Reset() {
 	*x = DataRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -211,7 +335,7 @@ func (x *DataRequest) String() string {
 func (*DataRequest) ProtoMessage() {}
 
 func (x *DataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[4]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -224,7 +348,7 @@ func (x *DataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataRequest.ProtoReflect.Descriptor instead.
 func (*DataRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{4}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *DataRequest) GetOffset() int64 {
@@ -251,7 +375,7 @@ type DataResponse struct {
 
 func (x *DataResponse) Reset() {
 	*x = DataResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -263,7 +387,7 @@ func (x *DataResponse) String() string {
 func (*DataResponse) ProtoMessage() {}
 
 func (x *DataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[5]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -276,7 +400,7 @@ func (x *DataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataResponse.ProtoReflect.Descriptor instead.
 func (*DataResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{5}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *DataResponse) GetContent() []byte {
@@ -305,7 +429,7 @@ type StorerecordRequest struct {
 
 func (x *StorerecordRequest) Reset() {
 	*x = StorerecordRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -317,7 +441,7 @@ func (x *StorerecordRequest) String() string {
 func (*StorerecordRequest) ProtoMessage() {}
 
 func (x *StorerecordRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[6]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -330,7 +454,7 @@ func (x *StorerecordRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorerecordRequest.ProtoReflect.Descriptor instead.
 func (*StorerecordRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{6}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *StorerecordRequest) GetHeartbeat() string {
@@ -370,7 +494,7 @@ type StorerecordResponse struct {
 
 func (x *StorerecordResponse) Reset() {
 	*x = StorerecordResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +506,7 @@ func (x *StorerecordResponse) String() string {
 func (*StorerecordResponse) ProtoMessage() {}
 
 func (x *StorerecordResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[7]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +519,7 @@ func (x *StorerecordResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StorerecordResponse.ProtoReflect.Descriptor instead.
 func (*StorerecordResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{7}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *StorerecordResponse) GetIsok() bool {
@@ -414,7 +538,7 @@ type IntegrityVerificationRequest struct {
 
 func (x *IntegrityVerificationRequest) Reset() {
 	*x = IntegrityVerificationRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -426,7 +550,7 @@ func (x *IntegrityVerificationRequest) String() string {
 func (*IntegrityVerificationRequest) ProtoMessage() {}
 
 func (x *IntegrityVerificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[8]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -439,7 +563,7 @@ func (x *IntegrityVerificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IntegrityVerificationRequest.ProtoReflect.Descriptor instead.
 func (*IntegrityVerificationRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{8}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IntegrityVerificationRequest) GetFilename() string {
@@ -460,7 +584,7 @@ type IntegrityVerificationResponse struct {
 
 func (x *IntegrityVerificationResponse) Reset() {
 	*x = IntegrityVerificationResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -472,7 +596,7 @@ func (x *IntegrityVerificationResponse) String() string {
 func (*IntegrityVerificationResponse) ProtoMessage() {}
 
 func (x *IntegrityVerificationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[9]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -485,7 +609,7 @@ func (x *IntegrityVerificationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IntegrityVerificationResponse.ProtoReflect.Descriptor instead.
 func (*IntegrityVerificationResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{9}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *IntegrityVerificationResponse) GetFilename() string {
@@ -520,7 +644,7 @@ type ModuleDownloadRequest struct {
 
 func (x *ModuleDownloadRequest) Reset() {
 	*x = ModuleDownloadRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -532,7 +656,7 @@ func (x *ModuleDownloadRequest) String() string {
 func (*ModuleDownloadRequest) ProtoMessage() {}
 
 func (x *ModuleDownloadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[10]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -545,7 +669,7 @@ func (x *ModuleDownloadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModuleDownloadRequest.ProtoReflect.Descriptor instead.
 func (*ModuleDownloadRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{10}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ModuleDownloadRequest) GetServeraddress() string {
@@ -579,7 +703,7 @@ type ModulePushResponse struct {
 
 func (x *ModulePushResponse) Reset() {
 	*x = ModulePushResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -591,7 +715,7 @@ func (x *ModulePushResponse) String() string {
 func (*ModulePushResponse) ProtoMessage() {}
 
 func (x *ModulePushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[11]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -604,7 +728,7 @@ func (x *ModulePushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ModulePushResponse.ProtoReflect.Descriptor instead.
 func (*ModulePushResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{11}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ModulePushResponse) GetContent() []byte {
@@ -634,7 +758,7 @@ type UploadRequest struct {
 
 func (x *UploadRequest) Reset() {
 	*x = UploadRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -646,7 +770,7 @@ func (x *UploadRequest) String() string {
 func (*UploadRequest) ProtoMessage() {}
 
 func (x *UploadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[12]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -659,7 +783,7 @@ func (x *UploadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadRequest.ProtoReflect.Descriptor instead.
 func (*UploadRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{12}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UploadRequest) GetData() isUploadRequest_Data {
@@ -716,7 +840,7 @@ type Finformation struct {
 
 func (x *Finformation) Reset() {
 	*x = Finformation{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[13]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -728,7 +852,7 @@ func (x *Finformation) String() string {
 func (*Finformation) ProtoMessage() {}
 
 func (x *Finformation) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[13]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -741,7 +865,7 @@ func (x *Finformation) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Finformation.ProtoReflect.Descriptor instead.
 func (*Finformation) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{13}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Finformation) GetFilename() string {
@@ -789,7 +913,7 @@ type UploadResponse struct {
 
 func (x *UploadResponse) Reset() {
 	*x = UploadResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[14]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -801,7 +925,7 @@ func (x *UploadResponse) String() string {
 func (*UploadResponse) ProtoMessage() {}
 
 func (x *UploadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[14]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -814,7 +938,7 @@ func (x *UploadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UploadResponse.ProtoReflect.Descriptor instead.
 func (*UploadResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{14}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *UploadResponse) GetMessage() string {
@@ -841,7 +965,7 @@ type AnalyzingRequest struct {
 
 func (x *AnalyzingRequest) Reset() {
 	*x = AnalyzingRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[15]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -853,7 +977,7 @@ func (x *AnalyzingRequest) String() string {
 func (*AnalyzingRequest) ProtoMessage() {}
 
 func (x *AnalyzingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[15]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -866,7 +990,7 @@ func (x *AnalyzingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzingRequest.ProtoReflect.Descriptor instead.
 func (*AnalyzingRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{15}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *AnalyzingRequest) GetFilename() string {
@@ -893,7 +1017,7 @@ type AnalyzingResponse struct {
 
 func (x *AnalyzingResponse) Reset() {
 	*x = AnalyzingResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[16]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -905,7 +1029,7 @@ func (x *AnalyzingResponse) String() string {
 func (*AnalyzingResponse) ProtoMessage() {}
 
 func (x *AnalyzingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[16]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -918,7 +1042,7 @@ func (x *AnalyzingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AnalyzingResponse.ProtoReflect.Descriptor instead.
 func (*AnalyzingResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{16}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *AnalyzingResponse) GetModulename() []string {
@@ -945,7 +1069,7 @@ type ExpirationPushRequest struct {
 
 func (x *ExpirationPushRequest) Reset() {
 	*x = ExpirationPushRequest{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[17]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -957,7 +1081,7 @@ func (x *ExpirationPushRequest) String() string {
 func (*ExpirationPushRequest) ProtoMessage() {}
 
 func (x *ExpirationPushRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[17]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -970,7 +1094,7 @@ func (x *ExpirationPushRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpirationPushRequest.ProtoReflect.Descriptor instead.
 func (*ExpirationPushRequest) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{17}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ExpirationPushRequest) GetServeraddress() string {
@@ -998,7 +1122,7 @@ type ExpirationPushResponse struct {
 
 func (x *ExpirationPushResponse) Reset() {
 	*x = ExpirationPushResponse{}
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[18]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1010,7 +1134,7 @@ func (x *ExpirationPushResponse) String() string {
 func (*ExpirationPushResponse) ProtoMessage() {}
 
 func (x *ExpirationPushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_grpc_ModuleBalancing_proto_msgTypes[18]
+	mi := &file_grpc_ModuleBalancing_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +1147,7 @@ func (x *ExpirationPushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExpirationPushResponse.ProtoReflect.Descriptor instead.
 func (*ExpirationPushResponse) Descriptor() ([]byte, []int) {
-	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{18}
+	return file_grpc_ModuleBalancing_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ExpirationPushResponse) GetPartnumber() string {
@@ -1051,11 +1175,16 @@ var File_grpc_ModuleBalancing_proto protoreflect.FileDescriptor
 
 const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\n" +
-	"\x1agrpc/ModuleBalancing.proto\x12\x0fModuleBalancing\"M\n" +
+	"\x1agrpc/ModuleBalancing.proto\x12\x0fModuleBalancing\")\n" +
+	"\x13AllowStorageRequest\x12\x12\n" +
+	"\x04size\x18\x01 \x01(\x03R\x04size\",\n" +
+	"\x14AllowStorageResponse\x12\x14\n" +
+	"\x05allow\x18\x01 \x01(\bR\x05allow\"M\n" +
 	"\x13ModuleReloadRequest\x12\x1a\n" +
 	"\bfilename\x18\x01 \x01(\tR\bfilename\x12\x1a\n" +
 	"\bserverip\x18\x02 \x01(\tR\bserverip\"\x0f\n" +
-	"\rEmptyResponse\"\f\n" +
+	"\rEmptyResponse\"\x0e\n" +
+	"\fEmptyRequest\"\f\n" +
 	"\n" +
 	"MD5Request\"\x1f\n" +
 	"\vMD5Response\x12\x10\n" +
@@ -1120,13 +1249,14 @@ const file_grpc_ModuleBalancing_proto_rawDesc = "" +
 	"\n" +
 	"modulename\x18\x02 \x03(\tR\n" +
 	"modulename\x12\x1c\n" +
-	"\theartbeat\x18\x03 \x01(\tR\theartbeat2\xce\x03\n" +
+	"\theartbeat\x18\x03 \x01(\tR\theartbeat2\xab\x04\n" +
 	"\x06Module\x12K\n" +
 	"\x06Upload\x12\x1e.ModuleBalancing.UploadRequest\x1a\x1f.ModuleBalancing.UploadResponse(\x01\x12R\n" +
 	"\tAnalyzing\x12!.ModuleBalancing.analyzingRequest\x1a\".ModuleBalancing.analyzingResponse\x12v\n" +
 	"\x15IntegrityVerification\x12-.ModuleBalancing.IntegrityVerificationRequest\x1a..ModuleBalancing.IntegrityVerificationResponse\x12U\n" +
 	"\x04Push\x12&.ModuleBalancing.ModuleDownloadRequest\x1a#.ModuleBalancing.ModulePushResponse0\x01\x12T\n" +
-	"\fModuleReload\x12$.ModuleBalancing.ModuleReloadRequest\x1a\x1e.ModuleBalancing.EmptyResponse2q\n" +
+	"\fModuleReload\x12$.ModuleBalancing.ModuleReloadRequest\x1a\x1e.ModuleBalancing.EmptyResponse\x12[\n" +
+	"\fAllowStorage\x12$.ModuleBalancing.AllowStorageRequest\x1a%.ModuleBalancing.AllowStorageResponse2q\n" +
 	"\x0eExpirationpush\x12_\n" +
 	"\n" +
 	"Expiration\x12&.ModuleBalancing.ExpirationPushRequest\x1a'.ModuleBalancing.ExpirationPushResponse0\x012o\n" +
@@ -1148,50 +1278,55 @@ func file_grpc_ModuleBalancing_proto_rawDescGZIP() []byte {
 	return file_grpc_ModuleBalancing_proto_rawDescData
 }
 
-var file_grpc_ModuleBalancing_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_grpc_ModuleBalancing_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_grpc_ModuleBalancing_proto_goTypes = []any{
-	(*ModuleReloadRequest)(nil),           // 0: ModuleBalancing.ModuleReloadRequest
-	(*EmptyResponse)(nil),                 // 1: ModuleBalancing.EmptyResponse
-	(*MD5Request)(nil),                    // 2: ModuleBalancing.MD5Request
-	(*MD5Response)(nil),                   // 3: ModuleBalancing.MD5Response
-	(*DataRequest)(nil),                   // 4: ModuleBalancing.DataRequest
-	(*DataResponse)(nil),                  // 5: ModuleBalancing.DataResponse
-	(*StorerecordRequest)(nil),            // 6: ModuleBalancing.StorerecordRequest
-	(*StorerecordResponse)(nil),           // 7: ModuleBalancing.StorerecordResponse
-	(*IntegrityVerificationRequest)(nil),  // 8: ModuleBalancing.IntegrityVerificationRequest
-	(*IntegrityVerificationResponse)(nil), // 9: ModuleBalancing.IntegrityVerificationResponse
-	(*ModuleDownloadRequest)(nil),         // 10: ModuleBalancing.ModuleDownloadRequest
-	(*ModulePushResponse)(nil),            // 11: ModuleBalancing.ModulePushResponse
-	(*UploadRequest)(nil),                 // 12: ModuleBalancing.UploadRequest
-	(*Finformation)(nil),                  // 13: ModuleBalancing.finformation
-	(*UploadResponse)(nil),                // 14: ModuleBalancing.UploadResponse
-	(*AnalyzingRequest)(nil),              // 15: ModuleBalancing.analyzingRequest
-	(*AnalyzingResponse)(nil),             // 16: ModuleBalancing.analyzingResponse
-	(*ExpirationPushRequest)(nil),         // 17: ModuleBalancing.ExpirationPushRequest
-	(*ExpirationPushResponse)(nil),        // 18: ModuleBalancing.ExpirationPushResponse
+	(*AllowStorageRequest)(nil),           // 0: ModuleBalancing.AllowStorageRequest
+	(*AllowStorageResponse)(nil),          // 1: ModuleBalancing.AllowStorageResponse
+	(*ModuleReloadRequest)(nil),           // 2: ModuleBalancing.ModuleReloadRequest
+	(*EmptyResponse)(nil),                 // 3: ModuleBalancing.EmptyResponse
+	(*EmptyRequest)(nil),                  // 4: ModuleBalancing.EmptyRequest
+	(*MD5Request)(nil),                    // 5: ModuleBalancing.MD5Request
+	(*MD5Response)(nil),                   // 6: ModuleBalancing.MD5Response
+	(*DataRequest)(nil),                   // 7: ModuleBalancing.DataRequest
+	(*DataResponse)(nil),                  // 8: ModuleBalancing.DataResponse
+	(*StorerecordRequest)(nil),            // 9: ModuleBalancing.StorerecordRequest
+	(*StorerecordResponse)(nil),           // 10: ModuleBalancing.StorerecordResponse
+	(*IntegrityVerificationRequest)(nil),  // 11: ModuleBalancing.IntegrityVerificationRequest
+	(*IntegrityVerificationResponse)(nil), // 12: ModuleBalancing.IntegrityVerificationResponse
+	(*ModuleDownloadRequest)(nil),         // 13: ModuleBalancing.ModuleDownloadRequest
+	(*ModulePushResponse)(nil),            // 14: ModuleBalancing.ModulePushResponse
+	(*UploadRequest)(nil),                 // 15: ModuleBalancing.UploadRequest
+	(*Finformation)(nil),                  // 16: ModuleBalancing.finformation
+	(*UploadResponse)(nil),                // 17: ModuleBalancing.UploadResponse
+	(*AnalyzingRequest)(nil),              // 18: ModuleBalancing.analyzingRequest
+	(*AnalyzingResponse)(nil),             // 19: ModuleBalancing.analyzingResponse
+	(*ExpirationPushRequest)(nil),         // 20: ModuleBalancing.ExpirationPushRequest
+	(*ExpirationPushResponse)(nil),        // 21: ModuleBalancing.ExpirationPushResponse
 }
 var file_grpc_ModuleBalancing_proto_depIdxs = []int32{
-	13, // 0: ModuleBalancing.UploadRequest.information:type_name -> ModuleBalancing.finformation
-	12, // 1: ModuleBalancing.Module.Upload:input_type -> ModuleBalancing.UploadRequest
-	15, // 2: ModuleBalancing.Module.Analyzing:input_type -> ModuleBalancing.analyzingRequest
-	8,  // 3: ModuleBalancing.Module.IntegrityVerification:input_type -> ModuleBalancing.IntegrityVerificationRequest
-	10, // 4: ModuleBalancing.Module.Push:input_type -> ModuleBalancing.ModuleDownloadRequest
-	0,  // 5: ModuleBalancing.Module.ModuleReload:input_type -> ModuleBalancing.ModuleReloadRequest
-	17, // 6: ModuleBalancing.Expirationpush.Expiration:input_type -> ModuleBalancing.ExpirationPushRequest
-	6,  // 7: ModuleBalancing.Storerecord.Updatestorerecord:input_type -> ModuleBalancing.StorerecordRequest
-	2,  // 8: ModuleBalancing.ClientCheck.MD5:input_type -> ModuleBalancing.MD5Request
-	4,  // 9: ModuleBalancing.ClientCheck.Data:input_type -> ModuleBalancing.DataRequest
-	14, // 10: ModuleBalancing.Module.Upload:output_type -> ModuleBalancing.UploadResponse
-	16, // 11: ModuleBalancing.Module.Analyzing:output_type -> ModuleBalancing.analyzingResponse
-	9,  // 12: ModuleBalancing.Module.IntegrityVerification:output_type -> ModuleBalancing.IntegrityVerificationResponse
-	11, // 13: ModuleBalancing.Module.Push:output_type -> ModuleBalancing.ModulePushResponse
-	1,  // 14: ModuleBalancing.Module.ModuleReload:output_type -> ModuleBalancing.EmptyResponse
-	18, // 15: ModuleBalancing.Expirationpush.Expiration:output_type -> ModuleBalancing.ExpirationPushResponse
-	7,  // 16: ModuleBalancing.Storerecord.Updatestorerecord:output_type -> ModuleBalancing.StorerecordResponse
-	3,  // 17: ModuleBalancing.ClientCheck.MD5:output_type -> ModuleBalancing.MD5Response
-	5,  // 18: ModuleBalancing.ClientCheck.Data:output_type -> ModuleBalancing.DataResponse
-	10, // [10:19] is the sub-list for method output_type
-	1,  // [1:10] is the sub-list for method input_type
+	16, // 0: ModuleBalancing.UploadRequest.information:type_name -> ModuleBalancing.finformation
+	15, // 1: ModuleBalancing.Module.Upload:input_type -> ModuleBalancing.UploadRequest
+	18, // 2: ModuleBalancing.Module.Analyzing:input_type -> ModuleBalancing.analyzingRequest
+	11, // 3: ModuleBalancing.Module.IntegrityVerification:input_type -> ModuleBalancing.IntegrityVerificationRequest
+	13, // 4: ModuleBalancing.Module.Push:input_type -> ModuleBalancing.ModuleDownloadRequest
+	2,  // 5: ModuleBalancing.Module.ModuleReload:input_type -> ModuleBalancing.ModuleReloadRequest
+	0,  // 6: ModuleBalancing.Module.AllowStorage:input_type -> ModuleBalancing.AllowStorageRequest
+	20, // 7: ModuleBalancing.Expirationpush.Expiration:input_type -> ModuleBalancing.ExpirationPushRequest
+	9,  // 8: ModuleBalancing.Storerecord.Updatestorerecord:input_type -> ModuleBalancing.StorerecordRequest
+	5,  // 9: ModuleBalancing.ClientCheck.MD5:input_type -> ModuleBalancing.MD5Request
+	7,  // 10: ModuleBalancing.ClientCheck.Data:input_type -> ModuleBalancing.DataRequest
+	17, // 11: ModuleBalancing.Module.Upload:output_type -> ModuleBalancing.UploadResponse
+	19, // 12: ModuleBalancing.Module.Analyzing:output_type -> ModuleBalancing.analyzingResponse
+	12, // 13: ModuleBalancing.Module.IntegrityVerification:output_type -> ModuleBalancing.IntegrityVerificationResponse
+	14, // 14: ModuleBalancing.Module.Push:output_type -> ModuleBalancing.ModulePushResponse
+	3,  // 15: ModuleBalancing.Module.ModuleReload:output_type -> ModuleBalancing.EmptyResponse
+	1,  // 16: ModuleBalancing.Module.AllowStorage:output_type -> ModuleBalancing.AllowStorageResponse
+	21, // 17: ModuleBalancing.Expirationpush.Expiration:output_type -> ModuleBalancing.ExpirationPushResponse
+	10, // 18: ModuleBalancing.Storerecord.Updatestorerecord:output_type -> ModuleBalancing.StorerecordResponse
+	6,  // 19: ModuleBalancing.ClientCheck.MD5:output_type -> ModuleBalancing.MD5Response
+	8,  // 20: ModuleBalancing.ClientCheck.Data:output_type -> ModuleBalancing.DataResponse
+	11, // [11:21] is the sub-list for method output_type
+	1,  // [1:11] is the sub-list for method input_type
 	1,  // [1:1] is the sub-list for extension type_name
 	1,  // [1:1] is the sub-list for extension extendee
 	0,  // [0:1] is the sub-list for field type_name
@@ -1202,7 +1337,7 @@ func file_grpc_ModuleBalancing_proto_init() {
 	if File_grpc_ModuleBalancing_proto != nil {
 		return
 	}
-	file_grpc_ModuleBalancing_proto_msgTypes[12].OneofWrappers = []any{
+	file_grpc_ModuleBalancing_proto_msgTypes[15].OneofWrappers = []any{
 		(*UploadRequest_Information)(nil),
 		(*UploadRequest_ChunkData)(nil),
 	}
@@ -1212,7 +1347,7 @@ func file_grpc_ModuleBalancing_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_grpc_ModuleBalancing_proto_rawDesc), len(file_grpc_ModuleBalancing_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   4,
 		},

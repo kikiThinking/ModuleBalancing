@@ -59,7 +59,7 @@ type Configuration struct {
 	GRPC struct {
 		Port string `yaml:"Port"`
 	} `yaml:"GRPC"`
-	Backup struct {
+	Backup []struct {
 		Host string `yaml:"Host"`
 		Port string `yaml:"Port"`
 	} `yaml:"Backup"`
@@ -241,14 +241,18 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 		_, fexist := os.Stat(strings.Join([]string{cf.Setting.Common, value}, `\`))
 		if !exist || os.IsNotExist(fexist) {
 			// from backup
-			backctx, cencel := context.WithCancel(context.Background())
-			if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", cf.Backup.Host, cf.Backup.Port), cf.Setting.Common, value, cf.Setting.Expiration, logwrite); err != nil {
-				logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
+			for _, backupserver := range cf.Backup {
+				backctx, cencel := context.WithCancel(context.Background())
+				if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), cf.Setting.Common, value, cf.Setting.Expiration, logwrite); err != nil {
+					logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
+					cencel()
+					analyzingerror = append(analyzingerror, value)
+					continue
+				}
+
 				cencel()
-				analyzingerror = append(analyzingerror, value)
-				continue
+				break
 			}
-			cencel()
 		}
 
 		response = append(response, strings.TrimSpace(value))
@@ -399,6 +403,8 @@ func MonitornewmoduleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expir
 	}
 }
 
+// Monitornewmodule 监听一个路径 并返回路径下新增文件的路径
+// Deprecated: github.com/rjeczalik/notify 存在问题 新增的文件没有被处理
 func Monitornewmodule(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {
 	logwri.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
 	var monitorfile = make(chan string, 200)
@@ -857,6 +863,31 @@ func Modulereload(ctx context.Context, conn *grpc.ClientConn, serverip, filename
 		return err
 	}
 	return nil
+}
+
+func AllowStorage(ctx context.Context, backupaddress string, size int64, logmar *logmanager.BusinessLogger) bool {
+	var (
+		conn *grpc.ClientConn
+	)
+
+	conn, err = grpc.NewClient(backupaddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		logmar.Error(fmt.Sprintf("[allow storage]Did not connect: %s", err.Error()))
+		return false
+	}
+
+	defer conn.Close()
+
+	askclient := rpc.NewModuleClient(conn)
+
+	var allow *rpc.AllowStorageResponse
+	allow, err = askclient.AllowStorage(ctx, &rpc.AllowStorageRequest{Size: size})
+	if err != nil {
+		logmar.Error("allow storage failed: " + err.Error())
+		return false
+	}
+
+	return allow.Allow
 }
 
 // GetOptimalBufferSize 动态调整缓冲区大小
