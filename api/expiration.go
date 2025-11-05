@@ -14,12 +14,11 @@ import (
 	"ModuleBalancing/db"
 	rpc "ModuleBalancing/grpc"
 	"ModuleBalancing/logmanager"
-	"fmt"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/net/context"
 	"gorm.io/gorm"
 )
 
@@ -33,15 +32,26 @@ type Expirationpush struct {
 
 // Expiration 检查客户端的本地配置文件, 客户端文件的过期事情并通知删除
 func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream rpc.Expirationpush_ExpirationServer) error {
-	var messagechannel chan *rpc.ExpirationPushResponse
+	//var messagechannel chan *rpc.ExpirationPushResponse
 
 	// 首次连接
-	if _, ok := the.ClientList[request.Serveraddress]; !ok {
-		the.ClientList[request.Serveraddress] = make(chan *rpc.ExpirationPushResponse, 10)
-		messagechannel = the.ClientList[request.Serveraddress]
-	} else {
-		messagechannel = the.ClientList[request.Serveraddress]
+	//if _, ok := the.ClientList[request.Serveraddress]; !ok {
+	//	the.ClientList[request.Serveraddress] = make(chan *rpc.ExpirationPushResponse, 10)
+	//
+	//	messagechannel = the.ClientList[request.Serveraddress]
+	//} else {
+	//	messagechannel = the.ClientList[request.Serveraddress]
+	//}
+	globalctx, globalcancel := context.WithCancel(stream.Context())
+	defer globalcancel()
+
+	the.mu.Lock()
+	messagechannel, exists := the.ClientList[request.Serveraddress]
+	if !exists {
+		messagechannel = make(chan *rpc.ExpirationPushResponse, 10)
+		the.ClientList[request.Serveraddress] = messagechannel
 	}
+	the.mu.Unlock()
 
 	var exist bool
 	if err = the.Dbcontrol.Model(db.Client{}).Select(`COUNT(*) > 0`).Where(db.Client{Serveraddress: request.Serveraddress}).Scan(&exist).Error; err != nil {
@@ -91,17 +101,17 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 		ticker := time.NewTicker(5 * time.Second)
 		defer ticker.Stop()
 
-		for range ticker.C {
+		for {
 			select {
-			case <-stream.Context().Done():
-				log.Printf("Client %s disconnected\r\n", request.Serveraddress)
-				if err = the.Dbcontrol.Model(db.Client{}).Where(db.Client{Serveraddress: request.Serveraddress}).Update("status", "offline").Error; err != nil {
-					log.Printf("Failed to Change Client Status: %s\r\n", request.Serveraddress)
-				}
+			case <-globalctx.Done(): // 使用统一的 ctx
+				log.Printf("Client %s heartbeat stopped\r\n", request.Serveraddress)
 				return
-			default:
+			case <-ticker.C:
 				select {
+				case <-globalctx.Done():
+					return
 				case messagechannel <- &rpc.ExpirationPushResponse{Heartbeat: request.Serveraddress}:
+					// 心跳发送成功
 				default:
 					log.Printf("Client %s channel is full, dropping message", request.Serveraddress)
 				}
@@ -112,21 +122,34 @@ func (the *Expirationpush) Expiration(request *rpc.ExpirationPushRequest, stream
 	// 发送Delete信息
 	for {
 		select {
-		case message := <-messagechannel:
-			if strings.EqualFold(message.Heartbeat, "") {
-				the.Logmar.GetLogger("Expirationforclient").Info(fmt.Sprintf("Expirationforclient: Partnumber(%s) Modules(%s)", message.Partnumber, message.Modulename))
+		case <-globalctx.Done(): // 使用统一的 ctx
+			return nil
+
+		case message, ok := <-messagechannel:
+			if !ok {
+				// Channel 被关闭，清理客户端
+				log.Printf("Client %s message channel closed", request.Serveraddress)
+				return nil
 			}
 
+			// 安全地处理消息
 			if err := stream.Send(message); err != nil {
 				the.Logmar.GetLogger("Expirationforclient").Error("failed to send expiration message to clientcontrol: ", err.Error())
 				the.BreakClient(request.Serveraddress)
 				log.Printf("Failed to send message to clientcontrol %s: %v", request.Serveraddress, err)
 				return err
 			}
-
-		case <-stream.Context().Done():
-			the.BreakClient(request.Serveraddress)
-			return nil
 		}
+	}
+}
+
+// BreakClient 函数关闭客户端的连接
+func (the *Expirationpush) BreakClient(clientID string) {
+	the.mu.Lock()
+	defer the.mu.Unlock()
+	if ch, ok := the.ClientList[clientID]; ok {
+		close(ch)
+		delete(the.ClientList, clientID)
+		log.Printf("GRPC Client (%s) removed", clientID)
 	}
 }

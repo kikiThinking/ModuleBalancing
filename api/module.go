@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -308,15 +307,4 @@ func (the *ModuleBalancing) ModuleReload(_ context.Context, request *rpc.ModuleR
 	}
 
 	return &rpc.EmptyResponse{}, nil
-}
-
-// BreakClient 函数关闭客户端的连接
-func (the *Expirationpush) BreakClient(clientID string) {
-	the.mu.Lock()
-	defer the.mu.Unlock()
-	if ch, ok := the.ClientList[clientID]; ok {
-		close(ch)
-		delete(the.ClientList, clientID)
-		log.Printf("GRPC Client (%s) removed", clientID)
-	}
 }

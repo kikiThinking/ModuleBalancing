@@ -126,73 +126,12 @@ func (the *Storerecord) Updatestorerecord(stream rpc.Storerecord_Updatestorereco
 					}
 				}
 
-				//if err = the.Dbcontrol.Clauses(
-				//	clause.OnConflict{
-				//		Columns: []clause.Column{{Name: "name"}, {Name: "store_id"}},
-				//		DoUpdates: clause.Assignments(map[string]interface{}{
-				//			"partnumber": clientmodule.Partnumber,
-				//			"expiration": clientmodule.Expiration,
-				//			"updated_at": gorm.Expr("CURRENT_TIMESTAMP"),
-				//			"deleted_at": nil, // 明确设置为 NULL 来取消软删除
-				//		}),
-				//		//DoUpdates: clause.AssignmentColumns([]string{"partnumber", "expiration", "updated_at", "deleted_at"}),
-				//	}).
-				//	Create(&clientmodule).Error; err != nil {
-				//	tx.Rollback()
-				//	the.Logmar.GetLogger("Clientstore").Error(err.Error())
-				//	return err
-				//}
-
 				the.Logmar.GetLogger("Clientstore").Info(fmt.Sprintf("Add clientcontrol storage record --> Client(%s)  Partnumber(%s)  Filename(%s)  Expiration(%s)",
 					req.Serveraddress,
 					clientmodule.Partnumber,
 					clientmodule.Name,
 					clientmodule.Expiration.Format("2006-01-02 15:04:05"),
 				))
-
-				//found := false // 标记是否找到匹配的模块
-				//for j := range clientcontrol.Store {
-				//	if strings.EqualFold(clientcontrol.Store[j].Name, value) {
-				//		found = true
-				//		clientcontrol.Store[j].Partnumber = req.Partnumber
-				//		clientcontrol.Store[j].Expiration = currenttime.Add(time.Duration(clientcontrol.Maxretentiondays) * time.Hour * 24)
-				//
-				//		// 这里如果找到记录那就更新一下当前的AOD名称和过时间
-				//		if err := tx.Model(&clientcontrol.Store[j]).UpdateColumns(map[string]interface{}{
-				//			"partnumber": req.Partnumber,
-				//			"expiration": clientcontrol.Store[j].Expiration,
-				//		}).Error; err != nil {
-				//			tx.Rollback()
-				//			the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("failed to database error --> %s", err.Error()))
-				//			return fmt.Errorf("failed to database error --> %s", err.Error()) // 事务回滚并返回错误
-				//		}
-				//		break // 找到匹配的模块后，跳出内层循环
-				//	}
-				//}
-				//
-				//// 没有找到对应的模块，创建新的 Clientmodule 记录
-				//if !found {
-				//	module := db.Clientmodule{
-				//		StoreID:    clientcontrol.ID,      // 关联到当前的 Client
-				//		Name:       value,          // 使用 req.Modulenames 中的 value 作为 Name
-				//		Partnumber: req.Partnumber, // 使用 req.Partnumber
-				//		Expiration: currenttime.Add(time.Duration(clientcontrol.Maxretentiondays) * time.Hour * 24),
-				//	}
-				//
-				//	if err := tx.Create(&module).Error; err != nil {
-				//		tx.Rollback()
-				//		the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("failed to database error --> %s", err.Error()))
-				//		return fmt.Errorf("failed to database error --> %s", err.Error()) // 事务回滚并返回错误
-				//	}
-				//
-				//	clientcontrol.Store = append(clientcontrol.Store, module)
-				//	the.Logmar.GetLogger("Clientstore").Info(fmt.Sprintf("Add a new clientcontrol storage record --> Client(%s)  Partnumber(%s)  Filename(%s)  Expiration(%s)",
-				//		req.Serveraddress,
-				//		module.Partnumber,
-				//		module.Name,
-				//		module.Expiration.Format("2006-01-02 15:04:05"),
-				//	))
-				//}
 			}
 
 			if err := tx.Commit().Error; err != nil {
