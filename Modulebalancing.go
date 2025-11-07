@@ -471,6 +471,7 @@ func expirationcheck(ctx *gorm.DB) {
 				isok      = false
 				backuperr error
 			)
+
 			for _, backupserver := range servicesconfiguration.Backup {
 				isok, backuperr = func() (bool, error) {
 					backcontext, cancel := context.WithCancel(context.Background())
