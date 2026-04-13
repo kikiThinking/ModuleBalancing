@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -43,15 +42,15 @@ func (the *Storerecord) Updatestorerecord(stream rpc.Storerecord_Updatestorereco
 					the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Error sending and closing stream: %s", err.Error()))
 				}
 				return nil
-			} else {
-				// 记录错误日志
-				the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Error receiving stream: %s", err.Error()))
-				return err
 			}
+
+			// 记录错误日志
+			the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Error receiving stream: %s", err.Error()))
+			return err
 		}
 
 		// 如果心跳为空则证明服务端发送的是业务数据
-		if strings.EqualFold(req.Heartbeat, "") {
+		if req.Heartbeat == "" {
 			// 开启事务
 			var (
 				tx          = the.Dbcontrol.Begin()
@@ -59,32 +58,32 @@ func (the *Storerecord) Updatestorerecord(stream rpc.Storerecord_Updatestorereco
 				currenttime = time.Now()
 			)
 
-			if err = the.Dbcontrol.Preload(`Store`).Where(db.Client{Serveraddress: req.Serveraddress}).First(client).Error; err != nil {
+			if err = tx.Where(db.Client{Serveraddress: req.Serveraddress}).First(client).Error; err != nil {
 				tx.Rollback() // 查询失败，回滚事务
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Unregistered clients(%s)", req.Serveraddress))
 					return err
-				} else {
-					the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("failed to database error --> %s", err.Error()))
-					return fmt.Errorf("failed to database error --> %s", err.Error()) // 其他error
 				}
+
+				the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("failed to database error --> %s", err.Error()))
+				return fmt.Errorf("failed to database error --> %s", err.Error()) // 其他error
 			}
 
 			// 客户端文件超时逻辑代码
 			for _, value := range req.Modulenames {
-				// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-				// 这段代码用于在客户端更新store时同时更新服务端本地的record
-				var exist = false
-				if err = the.Dbcontrol.Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: value}).Scan(&exist).Error; err != nil {
-					return err
-				}
 
-				if exist {
-					if err = the.Dbcontrol.Model(db.Module{}).Where(db.Module{Name: value}).Updates(map[string]interface{}{
-						`lastuse`:    currenttime.Format(`2006-01-02 15:04:05`),
-						`expiration`: currenttime.Add(time.Duration(the.Configuration.Setting.Expiration) * time.Hour * 24).Format(`2006-01-02 15:04:05`),
+				// 这段代码用于在客户端更新store时同时更新服务端本地的record
+				// 服务端Module更新 这里允许Module不存在的情况 因为他可能是Normal的Module
+				// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+				var module db.Module
+				if err = tx.Where(db.Module{Name: value}).First(&module).Error; err != nil {
+					the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
+				} else {
+					if err = tx.Model(&module).Updates(map[string]interface{}{
+						`lastuse`:    currenttime,
+						`expiration`: currenttime.Add(time.Duration(the.Configuration.Setting.Expiration) * time.Hour * 24),
 					}).Error; err != nil {
-						return err
+						the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
 					}
 				}
 				// ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -96,31 +95,35 @@ func (the *Storerecord) Updatestorerecord(stream rpc.Storerecord_Updatestorereco
 					Expiration: currenttime.Add(time.Duration(client.Maxretentiondays) * time.Hour * 24),
 				}
 
-				var isexistrecord bool
-				if err = the.Dbcontrol.Unscoped().
-					Model(db.Clientmodule{}).Select(`COUNT(*) > 0`).
+				var record db.Clientmodule
+				if err = tx.Unscoped().
 					Where(db.Clientmodule{StoreID: clientmodule.StoreID, Name: value}).
-					Scan(&isexistrecord).Error; err != nil {
-					the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
-					return err
-				}
-
-				if isexistrecord {
-					if err = the.Dbcontrol.
-						Unscoped().
-						Model(db.Clientmodule{}).
-						Where(db.Clientmodule{StoreID: clientmodule.StoreID, Name: value}).
-						Updates(map[string]interface{}{
-							"partnumber": clientmodule.Partnumber,
-							"expiration": clientmodule.Expiration,
-							"updated_at": currenttime,
-							"deleted_at": nil,
-						}).Error; err != nil {
+					First(&record).Error; err != nil {
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						if err = tx.Model(db.Clientmodule{}).Create(&clientmodule).Error; err != nil {
+							tx.Rollback()
+							the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
+							return err
+						}
+					} else {
+						tx.Rollback()
 						the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
 						return err
 					}
 				} else {
-					if err = the.Dbcontrol.Model(db.Clientmodule{}).Create(&clientmodule).Error; err != nil {
+					updates := map[string]interface{}{
+						"partnumber": clientmodule.Partnumber,
+						"expiration": clientmodule.Expiration,
+						"updated_at": currenttime,
+					}
+					if record.DeletedAt.Valid {
+						updates["deleted_at"] = nil
+					}
+
+					if err = tx.Unscoped().
+						Model(&record).
+						Updates(updates).Error; err != nil {
+						tx.Rollback()
 						the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("Database error (%s)", err.Error()))
 						return err
 					}
@@ -134,15 +137,10 @@ func (the *Storerecord) Updatestorerecord(stream rpc.Storerecord_Updatestorereco
 				))
 			}
 
-			if err := tx.Commit().Error; err != nil {
+			if err = tx.Commit().Error; err != nil {
 				tx.Rollback()
 				the.Logmar.GetLogger("Clientstore").Error(fmt.Sprintf("failed to database error --> %s", err.Error()))
 				return fmt.Errorf("failed to database error --> %s", err.Error()) // 事务回滚并返回错误
-			}
-
-			if r := recover(); r != nil {
-				tx.Rollback()
-				panic(r) // 重新抛出panic
 			}
 		}
 	}
