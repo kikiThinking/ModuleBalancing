@@ -19,10 +19,6 @@ service Expirationpush {
   rpc Expiration(ExpirationPushRequest) returns (stream ExpirationPushResponse);
 }
 
-//service ExpirationNotice {
-//  rpc Notice(stream ExpirationServices) returns (stream ExpirationClient);
-//}
-
 service Storerecord {
   rpc Updatestorerecord(stream StorerecordRequest) returns (StorerecordResponse);
 }

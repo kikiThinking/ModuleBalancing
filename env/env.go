@@ -41,6 +41,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	monitorFileReadyInterval = 5 * time.Second
+	monitorFileReadyAttempts = 120
+)
+
 type Configuration struct {
 	Setting struct {
 		Expiration            int64  `yaml:"Expiration"`
@@ -97,9 +102,6 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 	}
 
 	chunks := int((fileSize + chunkSize - 1) / chunkSize)
-	if workers > chunks {
-		workers = chunks
-	}
 
 	table := crc64.MakeTable(crc64.ECMA)
 	var wg sync.WaitGroup
@@ -109,7 +111,6 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 	var hasError bool
 	var mu sync.Mutex // 用于保护hasError
 
-	// 启动worker池
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 		go func() {
@@ -133,41 +134,28 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 					return
 				}
 
-				// 计算当前块的CRC
 				sum := crc64.Checksum(buf[:n], table)
-
-				// 直接存储到结果切片的对应位置
 				results[chunkIndex] = sum
 			}
 		}()
 	}
 
-	// 分发任务
 	go func() {
 		for i := 0; i < chunks; i++ {
-			mu.Lock()
-			if hasError {
-				mu.Unlock()
-				break
-			}
-			mu.Unlock()
 			workCh <- i
 		}
 		close(workCh)
 	}()
 
-	// 等待完成
 	go func() {
 		wg.Wait()
 		close(errCh) // 关闭错误通道表示所有工作完成
 	}()
 
-	// 处理错误
 	if err := <-errCh; err != nil {
 		return 0, finformation.Size(), err
 	}
 
-	// 按顺序合并所有块的CRC值
 	finalCRC := uint64(0)
 	for i := 0; i < chunks; i++ {
 		sum := results[i]
@@ -180,7 +168,7 @@ func CRC64(filePath string, chunkSize int64, workers int) (uint64, int64, error)
 	return finalCRC, finformation.Size(), nil
 }
 
-func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanager.BusinessLogger) ([]string, []string, error) {
+func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logmar *logmanager.BusinessLogger) ([]string, []string, error) {
 	var (
 		crifilelist    = make([]string, 0)
 		response       = make([]string, 0)
@@ -188,25 +176,26 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 		buf            = bufio.NewScanner(bytes.NewReader(source))
 	)
 
-	matchstr, err := regexp.Compile(`(?i)FILE=.*CRI`) //
+	matchModule, err := regexp.Compile(`(?i)FILE=.*CRI`)
 	if err != nil {
 		return nil, nil, err
 	}
 
+	// 按行读取AOD文件, 匹配Cri
 	for buf.Scan() {
 		if buf.Err() != nil {
 			break
 		}
 
-		var crifilename = strings.NewReplacer("FILE=", "", "File=", "").Replace(matchstr.FindString(buf.Text()))
-		if strings.EqualFold(crifilename, "") {
+		var criFileName = strings.NewReplacer("FILE=", "", "File=", "").Replace(matchModule.FindString(buf.Text()))
+		if strings.EqualFold(criFileName, "") {
 			continue
 		}
 
-		crifilelist = append(crifilelist, strings.TrimSpace(crifilename))
+		crifilelist = append(crifilelist, strings.TrimSpace(criFileName))
 	}
 
-	matchstr, err = regexp.Compile(`(?i)modulename\d*.*`) //
+	matchModule, err = regexp.Compile(`(?i)modulename\d*.*`) //
 	if err != nil {
 		return nil, nil, err
 	}
@@ -220,7 +209,7 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 				break
 			}
 
-			var modulename = matchstr.FindString(buf.Text())
+			var modulename = matchModule.FindString(buf.Text())
 			if strings.EqualFold(modulename, "") || len(strings.Split(modulename, "=")) != 2 {
 				continue
 			}
@@ -230,6 +219,7 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 		return res
 	}
 
+	// 读取本地Cri文件 并匹配其中的Module列表
 	for _, value := range crifilelist {
 		var exist bool
 		if err = ctx.Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: value}).Scan(&exist).Error; err != nil {
@@ -242,8 +232,8 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 			// from backup
 			for _, backupserver := range cf.Backup {
 				backctx, cencel := context.WithCancel(context.Background())
-				if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), cf.Setting.Common, value, cf.Setting.Expiration, logwrite); err != nil {
-					logwrite.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
+				if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), cf.Setting.Common, value, cf.Setting.Expiration, logmar); err != nil {
+					logmar.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
 					cencel()
 					analyzingerror = append(analyzingerror, value)
 					continue
@@ -266,96 +256,116 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logwrite *logmanag
 	return response, analyzingerror, nil
 }
 
-// MonitorModuleBack
-// 确认notify有问题后切入使用fsnotify重写的函数
-func MonitorModuleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {
-	logwri.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
-	var monitorfile = make(chan string, 200)
-	go func() {
-		for {
-			select {
-			case fp := <-monitorfile:
-				var ticker = time.NewTicker(time.Second * 5)
-				var loop = 0
-				var fclose = false
-				for range ticker.C {
-					if loop == 120 {
-						break
-					}
-					if handle, err := windows.CreateFile(
-						windows.StringToUTF16Ptr(fp),
-						windows.GENERIC_READ,
-						0, // 关键：共享模式为0，表示独占访问
-						nil,
-						windows.OPEN_EXISTING,
-						windows.FILE_ATTRIBUTE_NORMAL,
-						0,
-					); err != nil {
-						loop++
-						continue
-					} else {
-						_ = windows.CloseHandle(handle)
-						fclose = true
-						break
-					}
-				}
-
-				if fclose {
-					var (
-						crc  uint64
-						size int64
-					)
-
-					if crc, size, err = CRC64(fp, 128*1024*1024, 8); err != nil {
-						logwri.Error(err.Error())
-						continue
-					}
-
-					var module = db.Module{
-						CRC64:      crc,
-						Name:       filepath.Base(fp),
-						Size:       size,
-						Lastuse:    time.Now(),
-						Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expiration)),
-					}
-
-					var isexistrecord bool
-					if err = ctx.Unscoped().Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: module.Name}).Scan(&isexistrecord).Error; err != nil {
-						logwri.Error(err.Error())
-						continue
-					}
-
-					if isexistrecord {
-						if err = ctx.Unscoped().Model(db.Module{}).Where(db.Module{Name: module.Name}).
-							Updates(map[string]interface{}{
-								"crc64":      module.CRC64,
-								"size":       module.Size,
-								"lastuse":    module.Lastuse,
-								"expiration": module.Expiration,
-								"deleted_at": nil,
-							}).Error; err != nil {
-							logwri.Error(err.Error())
-							continue
-						}
-					} else {
-						if err = ctx.Model(db.Module{}).Create(&module).Error; err != nil {
-							logwri.Error(err.Error())
-							continue
-						}
-					}
-
-					logwri.Info(fmt.Sprintf("Create a new module record ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
-						module.Name,
-						module.Size,
-						module.CRC64,
-						module.Lastuse.Format(`2006-01-02 15:04:05`),
-						module.Expiration.Format(`2006-01-02 15:04:05`),
-					))
-
-				} else {
-					logwri.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s))", fp))
-				}
+func waitForFileReady(fp string) (bool, error) {
+	for i := 0; i < monitorFileReadyAttempts; i++ {
+		if _, err := os.Stat(fp); err != nil {
+			if os.IsNotExist(err) {
+				time.Sleep(monitorFileReadyInterval)
+				continue
 			}
+			return false, err
+		}
+
+		handle, err := windows.CreateFile(
+			windows.StringToUTF16Ptr(fp),
+			windows.GENERIC_READ,
+			0,
+			nil,
+			windows.OPEN_EXISTING,
+			windows.FILE_ATTRIBUTE_NORMAL,
+			0,
+		)
+		if err == nil {
+			_ = windows.CloseHandle(handle)
+			return true, nil
+		}
+
+		time.Sleep(monitorFileReadyInterval)
+	}
+
+	return false, nil
+}
+
+func upsertMonitoredModule(ctx *gorm.DB, module db.Module) error {
+	var isexistrecord bool
+	if err = ctx.Unscoped().Model(db.Module{}).Select(`COUNT(*) > 0`).Where(db.Module{Name: module.Name}).Scan(&isexistrecord).Error; err != nil {
+		return err
+	}
+
+	if isexistrecord {
+		return ctx.Unscoped().Model(db.Module{}).Where(db.Module{Name: module.Name}).
+			Updates(map[string]interface{}{
+				"crc64":      module.CRC64,
+				"size":       module.Size,
+				"lastuse":    module.Lastuse,
+				"expiration": module.Expiration,
+				"deleted_at": nil,
+			}).Error
+	}
+
+	return ctx.Model(db.Module{}).Create(&module).Error
+}
+
+func processMonitoredFile(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, fp string) {
+	ready, waitErr := waitForFileReady(fp)
+	if waitErr != nil {
+		fmt.Printf("%s ----> Failed\n", filepath.Base(fp))
+		logwri.Error(waitErr.Error())
+		return
+	}
+
+	if !ready {
+		fmt.Printf("%s ----> Failed\n", filepath.Base(fp))
+		logwri.Error(fmt.Sprintf("The file has been occupied for more than 10 minutes(%s)", fp))
+		return
+	}
+
+	crc, size, crcErr := CRC64(fp, 128*1024*1024, 0)
+	if crcErr != nil {
+		fmt.Printf("%s ----> Failed\n", filepath.Base(fp))
+		logwri.Error(crcErr.Error())
+		return
+	}
+
+	module := db.Module{
+		CRC64:      crc,
+		Name:       filepath.Base(fp),
+		Size:       size,
+		Lastuse:    time.Now(),
+		Expiration: time.Now().Add(time.Hour * 24 * time.Duration(expiration)),
+	}
+
+	if err := upsertMonitoredModule(ctx, module); err != nil {
+		fmt.Printf("%s ----> Failed\n", module.Name)
+		logwri.Error(err.Error())
+		return
+	}
+
+	fmt.Printf("%s ----> OK\n", module.Name)
+
+	logwri.Info(fmt.Sprintf("Create a new module record ----> %-20s  Size: %-10v  CRC64: %-20v  Lastuse:%-20s  Expiration:%-20s",
+		module.Name,
+		module.Size,
+		module.CRC64,
+		module.Lastuse.Format(`2006-01-02 15:04:05`),
+		module.Expiration.Format(`2006-01-02 15:04:05`),
+	))
+}
+
+func MonitorModule(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expiration int64, monitorpath string) {
+	logwri.Info(fmt.Sprintf("starting monitor ----> (%s)", monitorpath))
+	var (
+		monitorfile = make(chan string, 200)
+		pending     = make(map[string]struct{})
+		pendingMu   sync.Mutex
+	)
+
+	go func() {
+		for fp := range monitorfile {
+			processMonitoredFile(ctx, logwri, expiration, fp)
+			pendingMu.Lock()
+			delete(pending, fp)
+			pendingMu.Unlock()
 		}
 	}()
 
@@ -369,13 +379,13 @@ func MonitorModuleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expirati
 		logwri.Error(fmt.Sprintf("Add Monitor Path Error: %s", err.Error()))
 		return
 	}
+	defer monitordir.Close()
 
 	var number = 1
 	for {
 		select {
 		case cre := <-monitordir.Events:
-			if cre.Op&fsnotify.Create == fsnotify.Create {
-				fmt.Printf("(%v) %s", number, filepath.Base(cre.Name))
+			if cre.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Rename) != 0 {
 				inf, err := os.Stat(cre.Name)
 				if err != nil {
 					logwri.Error(err.Error())
@@ -391,7 +401,14 @@ func MonitorModuleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expirati
 					continue
 				}
 
-				fmt.Println("\t ----> OK")
+				pendingMu.Lock()
+				if _, ok := pending[cre.Name]; ok {
+					pendingMu.Unlock()
+					continue
+				}
+				pending[cre.Name] = struct{}{}
+				pendingMu.Unlock()
+
 				monitorfile <- cre.Name
 				number++
 			}
@@ -402,6 +419,7 @@ func MonitorModuleBack(ctx *gorm.DB, logwri *logmanager.BusinessLogger, expirati
 	}
 }
 
+// Downloadmodulefromback from backup server download module
 func Downloadmodulefromback(dbcontrol *gorm.DB, ctx context.Context, backupaddress, fp, fn string, expirationday int64, logmar *logmanager.BusinessLogger) error {
 	var (
 		stream grpc.ServerStreamingClient[rpc.ModulePushResponse]
@@ -533,7 +551,7 @@ RELOAD:
 	}
 
 	// 计算下载下来的文件的CRC, 比对是否与服务端提供的一致
-	if fcrc, size, err = CRC64(tempfp, 128*1024*1024, 8); err != nil {
+	if fcrc, size, err = CRC64(tempfp, 128*1024*1024, 0); err != nil {
 		return err
 	}
 
@@ -602,6 +620,7 @@ RELOAD:
 	return nil
 }
 
+// Uploadtoback backup module to back server
 func Uploadtoback(ctx context.Context, backupaddress, common string, module db.Module, logmar *logmanager.BusinessLogger) error {
 	var (
 		conn *grpc.ClientConn
@@ -721,6 +740,7 @@ func Changefiletime(fp string, munix, cunix int64) error {
 	return syscall.SetFileTime(handle, &Ctime, &Rtime, &Mtime)
 }
 
+// Modulereload Request the server to reload the module file
 func Modulereload(ctx context.Context, conn *grpc.ClientConn, serverip, filename string) error {
 	if _, err = rpc.NewModuleClient(conn).ModuleReload(ctx, &rpc.ModuleReloadRequest{Filename: filename, Serverip: serverip}); err != nil {
 		return err
@@ -728,6 +748,7 @@ func Modulereload(ctx context.Context, conn *grpc.ClientConn, serverip, filename
 	return nil
 }
 
+// AllowStorage Ask if the backup server can receive modules
 func AllowStorage(ctx context.Context, backupaddress string, size int64, logmar *logmanager.BusinessLogger) bool {
 	var (
 		conn *grpc.ClientConn
@@ -741,10 +762,10 @@ func AllowStorage(ctx context.Context, backupaddress string, size int64, logmar 
 
 	defer conn.Close()
 
-	askclient := rpc.NewModuleClient(conn)
+	askClient := rpc.NewModuleClient(conn)
 
 	var allow *rpc.AllowStorageResponse
-	allow, err = askclient.AllowStorage(ctx, &rpc.AllowStorageRequest{Size: size})
+	allow, err = askClient.AllowStorage(ctx, &rpc.AllowStorageRequest{Size: size})
 	if err != nil {
 		logmar.Error("allow storage failed: " + err.Error())
 		return false

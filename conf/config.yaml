@@ -24,7 +24,7 @@ Setting:
   CheckUnwanted: 500
   CheckExpiration: 10
   CheckClientExpiration: 10
-  Common: E:\Server\Common
+  Common: D:\Common
 
 
 Database:

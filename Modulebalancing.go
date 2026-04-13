@@ -216,7 +216,7 @@ func main() {
 	}
 
 	// 实时监听Module目录, 当Module目录新增Module时
-	go env.MonitorModuleBack(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
+	go env.MonitorModule(dbcontrol, logmar.GetLogger("Monitornewmodule"), servicesconfiguration.Setting.Expiration, servicesconfiguration.Setting.Common)
 
 	// 过期Module备份和删除
 	go expirationcheck(dbcontrol)
