@@ -506,7 +506,7 @@ func expirationcheck(ctx *gorm.DB) {
 				}
 
 				if backuperr != nil {
-					logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup[%s] Module (%s)", backupserver.Host, err.Error()))
+					logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to Backup[%s] Module (%s)", backupserver.Host, backuperr.Error()))
 				}
 			}
 
@@ -514,7 +514,7 @@ func expirationcheck(ctx *gorm.DB) {
 				continue
 			}
 
-			if err = ctx.Where(`id =?`, item.ID).Delete(&db.Module{}).Error; err != nil {
+			if err = ctx.Where(`id =?`, item.ID).Unscoped().Delete(&db.Module{}).Error; err != nil {
 				logmar.GetLogger("Expiration").Error(fmt.Sprintf("Failed to deleted database record(%s)", err.Error()))
 				continue
 			}

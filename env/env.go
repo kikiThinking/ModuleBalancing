@@ -230,17 +230,23 @@ func Analyzing(ctx *gorm.DB, cf Configuration, source []byte, logmar *logmanager
 		_, fexist := os.Stat(strings.Join([]string{cf.Setting.Common, value}, `\`))
 		if !exist || os.IsNotExist(fexist) {
 			// from backup
+			var backupDownloadSuccess = false
 			for _, backupserver := range cf.Backup {
 				backctx, cencel := context.WithCancel(context.Background())
 				if err = Downloadmodulefromback(ctx, backctx, fmt.Sprintf("%s:%s", backupserver.Host, backupserver.Port), cf.Setting.Common, value, cf.Setting.Expiration, logmar); err != nil {
 					logmar.Error(fmt.Sprintf("Failed to from backup download module: %s", err.Error()))
 					cencel()
-					analyzingerror = append(analyzingerror, value)
 					continue
+				} else {
+					cencel()
+					backupDownloadSuccess = true
+					break
 				}
+			}
 
-				cencel()
-				break
+			if !backupDownloadSuccess {
+				analyzingerror = append(analyzingerror, value)
+				continue
 			}
 		}
 
